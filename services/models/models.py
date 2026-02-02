@@ -1,9 +1,7 @@
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, field_serializer
-
+from pydantic import BaseModel
 
 class User(BaseModel):
     username: str
@@ -38,9 +36,3 @@ class Customer(BaseModel):
 
 class IdModel(BaseModel):
     IdWinC: int
-
-class CardWarning(str, Enum):
-    Expiring = 'expiring'
-    Warning = 'warning'
-    Rescheduled = 'rescheduled'
-    Ok = 'ok'

@@ -22,6 +22,12 @@ async def create_card(user: user_dependency,card: CardRequest):
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication failed")
 
+    supabase.table('Card')\
+        .update({'Enabled': False})\
+        .eq('Enabled', True)\
+        .eq('CustomerId', card.CustomerId)\
+        .execute()
+
     result = supabase.table('Card')\
     .insert([
         CardInsert(
