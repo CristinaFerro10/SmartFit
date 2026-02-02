@@ -2,7 +2,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
+
 
 class User(BaseModel):
     username: str
@@ -16,6 +17,7 @@ class Subscription(BaseModel):
     IdWinC: int
     Description: str
     Enabled: bool
+    CardAvailable: int
 
 class Consultant(BaseModel):
     IdWinC: int
@@ -34,24 +36,11 @@ class Customer(BaseModel):
     TrainingOperatorId: int | None
     Enabled: bool
 
-class CustomerRequest(BaseModel):
-    IdWinC: int
-    Name: str
-    BirthDate: str | None
-    MedicalCertificateValidity: str | None
-    LastAccessDate: str | None
-    TrainingOperatorId: int | None
-    Enabled: bool
-
-class CustomerUpdateModel(BaseModel):
-    IdWinC: int
-    MedicalCertificateValidity: datetime | None
-    LastAccessDate: datetime | None
-
 class IdModel(BaseModel):
     IdWinC: int
 
 class CardWarning(str, Enum):
     Expiring = 'expiring'
     Warning = 'warning'
+    Rescheduled = 'rescheduled'
     Ok = 'ok'

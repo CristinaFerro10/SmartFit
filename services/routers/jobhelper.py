@@ -7,7 +7,8 @@ import os
 from dotenv import load_dotenv
 import httpx
 from models.customerResponse import CustomerItem
-from models.models import Subscription, Consultant, Customer, IdModel, CustomerRequest
+from models.models import Subscription, Consultant, Customer, IdModel
+from models.setmodels import CustomerRequest
 from models.domainResponse import DomainResponse
 from .auth_manager import auth_manager
 from database import supabase
