@@ -1,11 +1,14 @@
 from typing import Annotated
 from fastapi import HTTPException, status, Depends, APIRouter, Query
-
-from models.enumtype import Role
+from postgrest import CountMethod
+from models.enumtype import Role, CustomerOrderBy
 from models.filter import CustomerDashboardISTFilter
+from models.pagination import PaginatedResponse
 from routers.auth import get_current_user
 from database import supabase
+from dotenv import load_dotenv
 
+load_dotenv()
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
 router = APIRouter(
@@ -16,18 +19,12 @@ router = APIRouter(
 #user: user_dependency,, response_model=PaginatedResponse[Customer]
 #   if user is None:
 #       raise HTTPException(status_code=401, detail='Authentication Failed')
-'''
-    page: int = Query(1, ge=1, description="Numero pagina"),
-    page_size: int = Query(10, ge=1, le=100),
-    sort_by: Optional[str] = Query(None),
-    sort_order: Optional[SortOrder] = Query(None),
-'''
 @router.get("/dashboard/", status_code=status.HTTP_200_OK)
 async def list_users(
     filters: CustomerDashboardISTFilter = Query()
 ):
     #"vw_DashboardSecretary" if user.get('role').includes(Role.Secretary) else "vw_DashboardConsultant"
-    query = supabase.table("vw_DashboardConsultant").select('*')
+    query = supabase.table("vw_DashboardConsultant").select('*', count=CountMethod.exact)
 
     if filters.CustomerName is not None:
         query.ilike('Name', f'%{filters.CustomerName}%')
@@ -40,23 +37,36 @@ async def list_users(
     if filters.WarningType is not None:
         query.eq('Warning', filters.WarningType.value)
 
-    #urgenza -> default
-    #data ultima scheda
-    #data ultimo accesso
-    #nome a-z
-    #query.order('LastAccessDate',desc=True,nullsfirst=False)
-    result = query.execute()
-    return result.data
-    # Esegui paginazione
-    # count all status
+    if filters.OrderBy is None or filters.OrderBy == CustomerOrderBy.Default.value:
+        query.order('Warning', desc=True)
+    elif filters.OrderBy == CustomerOrderBy.NameAsc.value:
+        query.order('Name', desc=False, nullsfirst=False)
+    elif filters.OrderBy == CustomerOrderBy.NameDesc.value:
+        query.order('Name', desc=True, nullsfirst=False)
+    elif filters.OrderBy == CustomerOrderBy.LastAccessDate.value:
+        query.order('LastAccessDate', desc=True, nullsfirst=False)
+    elif filters.OrderBy == CustomerOrderBy.LastCard.value:
+        query.order('StartDate', desc=True, nullsfirst=False)
 
-#user: user_dependency,, response_model=PaginatedResponse[Customer]
-#   if user is None:
-#       raise HTTPException(status_code=401, detail='Authentication Failed')
+    # TODO count all status -> in base anche ai filtri!!!
+    # faccio left join qui? trasformo la mia enum in vista?
+    result = query\
+        .offset(filters.get_offset())\
+        .limit(filters.page_size)\
+        .execute()
+
+    return PaginatedResponse[dict](
+        items=result.data,
+        total=result.count,
+    )
+
 @router.get("/detail/", status_code=status.HTTP_200_OK)
-async def detail_user_for_consultant(customer: int = Query(gt=1)):
-    # "vw_DetailCustomer_Secretary" if user.get('role').includes(Role.Secretary) else "vw_DetailCustomer_Consultant"
-    result = supabase.table("vw_DetailCustomer_Consultant")\
+async def detail_user(user: user_dependency, customer: int = Query(gt=1)):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    view: str = "vw_DetailCustomer_Secretary" if user.get('role').includes(Role.Secretary) else "vw_DetailCustomer_Consultant"
+    print(view)
+    result = supabase.table(view)\
         .select('*')\
         .eq('IdWinC', customer)\
         .execute()

@@ -1,8 +1,10 @@
 from typing import Optional
-from pydantic import BaseModel
-from models.enumtype import CardWarning
+from models.enumtype import CustomerWarning, CustomerOrderBy
+from models.pagination import PaginationParams
 
-class CustomerDashboardISTFilter(BaseModel):
+
+class CustomerDashboardISTFilter(PaginationParams):
     CustomerName: Optional[str] = None
     TrainerOperatorId: Optional[int] = None
-    WarningType: Optional[CardWarning] = None
+    WarningType: Optional[CustomerWarning] = None
+    OrderBy: Optional[CustomerOrderBy] = None

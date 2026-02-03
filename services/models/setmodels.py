@@ -1,7 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, field_serializer, Field
 
-
 class CustomerRequest(BaseModel):
     IdWinC: int
     Name: str
