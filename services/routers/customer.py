@@ -16,10 +16,10 @@ router = APIRouter(
     tags=['customer']
 )
 
-#user: user_dependency,, response_model=PaginatedResponse[Customer]
+#user: user_dependency,
 #   if user is None:
 #       raise HTTPException(status_code=401, detail='Authentication Failed')
-@router.get("/dashboard/", status_code=status.HTTP_200_OK)
+@router.get("/dashboard/", status_code=status.HTTP_200_OK, response_model=PaginatedResponse[dict])
 async def list_users(
     filters: CustomerDashboardISTFilter = Query()
 ):

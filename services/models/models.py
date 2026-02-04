@@ -15,7 +15,7 @@ class Subscription(BaseModel):
     IdWinC: int
     Description: str
     Enabled: bool
-    CardAvailable: int
+    CardAvailable: Optional[int] = None
 
 class Consultant(BaseModel):
     IdWinC: int

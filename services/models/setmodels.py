@@ -16,6 +16,19 @@ class CardRequest(BaseModel):
     Rescheduled: bool
     DurationWeek: int = Field(gt=1)
 
+class SubscriptionRequest(BaseModel):
+    IdWinC: int
+    Description: str
+    Enabled: bool
+
+class CustomerSubscriptionRequest(BaseModel):
+    IdWinC: int
+    CreatedAt: str
+    StartDate: str
+    EndDate: str
+    CustomerId: int
+    SubscriptionId: int
+
 class CardInsert(BaseModel):
     DateEnd: datetime
     CustomerId: int

@@ -8,21 +8,33 @@ from dotenv import load_dotenv
 import httpx
 from models.customerResponse import CustomerItem
 from models.models import Subscription, Consultant, Customer, IdModel
-from models.setmodels import CustomerRequest
+from models.salesResponse import SalesResponse
+from models.setmodels import CustomerRequest, CustomerSubscriptionRequest, SubscriptionRequest
 from models.domainResponse import DomainResponse
 from .auth_manager import auth_manager
 from database import supabase
+from collections import Counter
+import json
 
 load_dotenv()
 curling: str = os.getenv("WELLNESS_URL")
 company: str = os.getenv("WELLNESS_COMPANY")
 usr: str = os.getenv("USN")
 psw: str = os.getenv("PSW")
-
+activity_sales: list[int]=json.loads(os.getenv("ACTIVITY_SALES", "[]"))
+# Timeout personalizzato
+timeout = httpx.Timeout(
+    connect=10.0,  # Tempo per connettersi
+    read=60.0,  # Tempo per leggere la risposta
+    write=10.0,  # Tempo per scrivere
+    pool=10.0  # Tempo per ottenere connessione dal pool
+)
 router = APIRouter(
     prefix='/job',
     tags=['job']
 )
+
+# TODO: prevedere eliminazione delle cose vecchie non èiù usate che caricano il db per nulla???
 
 # TODO: da decidere ogni quanto devono aggiornarsi, ogni MESE?
 @router.post('/user', status_code=status.HTTP_204_NO_CONTENT)
@@ -67,15 +79,8 @@ async def create_users():
 async def create_customers():
     token = await auth_manager.get_token(usr, psw)
     api_url = f"{curling}{company}/analysis/analysis_customers/search"
-    # Timeout personalizzato
-    timeout = httpx.Timeout(
-        connect=10.0,  # Tempo per connettersi
-        read=60.0,     # Tempo per leggere la risposta
-        write=10.0,    # Tempo per scrivere
-        pool=10.0      # Tempo per ottenere connessione dal pool
-    )
     async with httpx.AsyncClient(timeout=timeout) as client:
-        all_users: list[IdModel] = find_all_db_users_id()
+        all_users: list[IdModel] = await find_all_db_users_id()
 
         for user in all_users:
             response = await client.post(
@@ -97,7 +102,7 @@ async def create_customers():
 
 async def save_customer(response, user: IdModel):
     if response.status_code == status.HTTP_200_OK:
-        all_customers: list[Customer] = find_all_db_customers()
+        all_customers: list[Customer] = await find_all_db_customers()
         # se son clienti nuovi inserisco
         # se ce li ho già e hanno qualche campo diverso allora aggiorno solo i campi necessari
         to_create: List[dict] = []
@@ -144,60 +149,102 @@ async def create_subscriptions():
 
         if response.status_code == status.HTTP_200_OK:
             subscriptions_item = DomainResponse(**response.json())
-            active_subs: List[dict] = []
-            disactive_subs: List[Subscription] = []
+            to_create: List[dict] = []
             for group in subscriptions_item.data.itemsGroups:
                 for item in group.items:
-                    if item.active:
-                        active_subs.append(
-                            Subscription(
-                                IdWinC=int(item.value),
-                                Enabled=True,
-                                Description=item.label,
-                            ).model_dump()
-                        )
-                    else:
-                        disactive_subs.append(
-                            Subscription(
-                                IdWinC=int(item.value),
-                                Enabled=True,
-                                Description=item.label,
-                            )
-                        )
+                    to_create.append(
+                        SubscriptionRequest(
+                            IdWinC=int(item.value),
+                            Enabled=item.active,
+                            Description=item.label,
+                        ).model_dump()
+                    )
 
-            if active_subs:
+            if to_create:
                 result = supabase.table('Subscription').upsert(
-                    active_subs,
+                    to_create,
                     on_conflict='IdWinC',
                     count=CountMethod.exact
                 ).execute()
-                total_affected = len(result.data) if result.data else len(active_subs)
+                total_affected = len(result.data) if result.data else len(to_create)
                 print(f"Upsert completato: {total_affected} record processati")
-
-            if disactive_subs:
-                subs_db = supabase.table("Subscription") \
-                    .select("IdWinC") \
-                    .eq("Enabled", True) \
-                    .execute()
-                subscriptions: List[IdModel] = [IdModel(**item) for item in subs_db.data]
-                db_active_ids = {sub.IdWinC for sub in subscriptions}
-                external_disabled_ids = {sub.IdWinC for sub in disactive_subs}
-                ids_to_disable = db_active_ids.intersection(external_disabled_ids)
-                if ids_to_disable:
-                    print(f"Disattivazione di {len(ids_to_disable)} subscription")
-
-                    result = supabase.table("Subscription").update({
-                        'Enabled': False,
-                    }).in_('IdWinC', list(ids_to_disable)).execute()
-                    print(f"Disattivate {len(result.data)} subscription")
-
-            #TODO: riattivare record disabilitati se ora sono attivi
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate credentials'
             )
 
-def find_all_db_users_id() ->  list[IdModel]:
+# TODO: da decidere ogni quanto devono aggiornarsi, ogni GIORNO?
+''' analysis_sales
+                "saleDate_range_start": "2025-01-01T00:00:00",
+                "saleDate_range_end": "2025-02-28T00:00:00",
+                "salePurposeIds": [0],
+                "activityTypeIds": activity_sales,
+                "subscriptionPeriodEnd_range_start": "2026-02-04",
+'''
+@router.post('/customer/subscription', status_code=status.HTTP_204_NO_CONTENT)
+async def create_customer_subscription(startdaydelta: int):
+    token = await auth_manager.get_token(usr, psw)
+    api_url = f"{curling}{company}/analysis/analysis_authorizations/search"
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(
+            api_url,
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "authEnd_range_end_days_delta": 370,
+                "activityTypeIds": activity_sales,
+                "authEnd_range_start_days_delta": startdaydelta,
+                "analysisClassName": "FliptonicAppDb.ViewModels.Analysis.Authorizations.AuthorizationExpirationStatsSearch",
+                "analysisResultMode": 0,
+                "customerStatus": 1,
+                "excludeAccessCountAuthorizations": False,
+                "includeAuthorizationsWithoutExpirationDate": False,
+                "exportCsv": False,
+                "analysisController": "Analysis_Authorizations"
+            }
+        )
+
+        if response.status_code == status.HTTP_200_OK:
+            sales_item = SalesResponse(**response.json())
+            to_create: list[CustomerSubscriptionRequest] = []
+            subscriptions = await find_all_db_subscriptions()
+
+            for item in sales_item.data.dataSet:
+                subscription: Subscription | None = next((c for c in subscriptions if c.Description == item.renewalSalePackageName or c.Description == item.salePackageName),
+                                                 None) if len(subscriptions) > 0 else None
+                #todo: capire perchè alcuni customer NON li ho
+                if subscription:
+                    to_create.append(
+                        CustomerSubscriptionRequest(
+                            CustomerId= item.customerId,
+                            IdWinC=item.saleId,
+                            CreatedAt=item.saleDate,
+                            EndDate=item.end,
+                            StartDate=item.start,
+                            SubscriptionId=subscription.IdWinC if subscription else None
+                        ).model_dump()
+                    )
+                else:
+                    print(f'sub name: {item.renewalSalePackageName} sale pkg name: {item.salePackageName}')
+
+            ids = [item.get("IdWinC") for item in to_create]
+            print(f"Duplicates: {[id for id, count in Counter(ids).items() if count > 1]}")
+
+            if to_create:
+                result = supabase.table('CustomerSubscription').upsert(
+                    to_create,
+                    on_conflict='IdWinC',
+                    count=CountMethod.exact
+                ).execute()
+                total_affected = len(result.data) if result.data else len(to_create)
+                print(f"Upsert completato: {total_affected} record processati")
+        else:
+            print(response.status_code)
+            print(response.json())
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate credentials'
+            )
+
+async def find_all_db_users_id() ->  list[IdModel]:
     users_db = supabase.table("User") \
         .select("IdWinC") \
         .execute()
@@ -206,9 +253,16 @@ def find_all_db_users_id() ->  list[IdModel]:
 
     return [IdModel(**item) for item in users_db.data]
 
-def find_all_db_customers() ->  list[Customer]:
+async def find_all_db_customers() ->  list[Customer]:
     customers_db = supabase.table("Customer") \
         .select("*") \
         .execute()
 
     return [Customer(**item) for item in customers_db.data]
+
+async def find_all_db_subscriptions() ->  list[Subscription]:
+    subscriptions_db = supabase.table("Subscription") \
+        .select("*") \
+        .execute()
+
+    return [Subscription(**item) for item in subscriptions_db.data]
