@@ -8,3 +8,5 @@ class CustomerDashboardISTFilter(PaginationParams):
     TrainerOperatorId: Optional[int] = None
     WarningType: Optional[CustomerWarning] = None
     OrderBy: Optional[CustomerOrderBy] = None
+    SubscriptionExpiring: Optional[bool] = None
+    IsMDSSubscription: Optional[bool] = None

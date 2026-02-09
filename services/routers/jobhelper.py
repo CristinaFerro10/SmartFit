@@ -34,7 +34,9 @@ router = APIRouter(
     tags=['job']
 )
 
-# TODO: prevedere eliminazione delle cose vecchie non èiù usate che caricano il db per nulla???
+# TODO: prevedere eliminazione delle cose vecchie non più usate che caricano il db per nulla???
+# si da un anno a sta parte le schede, quando un abbonamento non ha schede attive elimino
+# personal training? ogni quanto?
 
 # TODO: da decidere ogni quanto devono aggiornarsi, ogni MESE?
 @router.post('/user', status_code=status.HTTP_204_NO_CONTENT)
@@ -182,17 +184,18 @@ async def create_subscriptions():
                 "subscriptionPeriodEnd_range_start": "2026-02-04",
 '''
 @router.post('/customer/subscription', status_code=status.HTTP_204_NO_CONTENT)
-async def create_customer_subscription(startdaydelta: int):
+async def create_customer_subscription():
     token = await auth_manager.get_token(usr, psw)
     api_url = f"{curling}{company}/analysis/analysis_authorizations/search"
+    # TODO: mettere un loop di gg (che casomai scelgo nell'app settings)
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             api_url,
             headers={"Authorization": f"Bearer {token}"},
             json={
-                "authEnd_range_end_days_delta": 370,
                 "activityTypeIds": activity_sales,
-                "authEnd_range_start_days_delta": startdaydelta,
+                "authEnd_range_start_days_delta": 200,
+                "authEnd_range_end_days_delta": 450,
                 "analysisClassName": "FliptonicAppDb.ViewModels.Analysis.Authorizations.AuthorizationExpirationStatsSearch",
                 "analysisResultMode": 0,
                 "customerStatus": 1,
@@ -211,8 +214,8 @@ async def create_customer_subscription(startdaydelta: int):
             for item in sales_item.data.dataSet:
                 subscription: Subscription | None = next((c for c in subscriptions if c.Description == item.renewalSalePackageName or c.Description == item.salePackageName),
                                                  None) if len(subscriptions) > 0 else None
-                #todo: capire perchè alcuni customer NON li ho
-                if subscription:
+                #todo: capire come fare a prendere con main operator a null
+                if subscription and item.mainReferenceOperatorId:
                     to_create.append(
                         CustomerSubscriptionRequest(
                             CustomerId= item.customerId,
@@ -220,7 +223,7 @@ async def create_customer_subscription(startdaydelta: int):
                             CreatedAt=item.saleDate,
                             EndDate=item.end,
                             StartDate=item.start,
-                            SubscriptionId=subscription.IdWinC if subscription else None
+                            SubscriptionId=subscription.IdWinC
                         ).model_dump()
                     )
                 else:

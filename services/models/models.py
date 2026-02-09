@@ -36,3 +36,27 @@ class Customer(BaseModel):
 
 class IdModel(BaseModel):
     IdWinC: int
+
+class CustomerPTModel(BaseModel):
+    Id: int
+    SessionNumber: int
+    DateStart: datetime
+
+class CustomerPTActiveModel(CustomerPTModel):
+    IntegrationHistory: list[dict]
+    SessionHistory: list[dict]
+
+class PackageHistoryModel(BaseModel):
+    SessionId: int
+    TrainingOperatorName: str
+    DateStart: datetime
+    SessionNumber: int
+    PackageHistory: list[dict]
+
+class SessionPTHistoryModel(BaseModel):
+    CustomerPTId: int
+    DateStart: datetime
+    TrainingOperatorName: str
+    Id: int
+    CustomerId: int
+    SessionNumber: int

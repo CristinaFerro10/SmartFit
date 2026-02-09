@@ -23,8 +23,8 @@ router = APIRouter(
 async def list_users(
     filters: CustomerDashboardISTFilter = Query()
 ):
-    #"vw_DashboardSecretary" if user.get('role').includes(Role.Secretary) else "vw_DashboardConsultant"
-    query = supabase.table("vw_DashboardConsultant").select('*', count=CountMethod.exact)
+    #"vw_DashboardSecretary" if Role.Secretary.value in user.get('role') else "vw_DashboardConsultant"
+    query = supabase.table("vw_DashboardSecretary").select('*', count=CountMethod.exact)
 
     if filters.CustomerName is not None:
         query.ilike('Name', f'%{filters.CustomerName}%')
@@ -36,6 +36,12 @@ async def list_users(
 
     if filters.WarningType is not None:
         query.eq('Warning', filters.WarningType.value)
+
+    if filters.SubscriptionExpiring:
+        query.eq('SubscriptionExpiring', filters.SubscriptionExpiring)
+
+    if filters.IsMDSSubscription:
+        query.eq('IsMDSSub', filters.IsMDSSubscription)
 
     if filters.OrderBy is None or filters.OrderBy == CustomerOrderBy.Default.value:
         query.order('Warning', desc=True)
@@ -64,7 +70,7 @@ async def list_users(
 async def detail_user(user: user_dependency, customer: int = Query(gt=1)):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
-    view: str = "vw_DetailCustomer_Secretary" if user.get('role').includes(Role.Secretary) else "vw_DetailCustomer_Consultant"
+    view: str = "vw_DetailCustomer_Secretary" if Role.Secretary.value in user.get('role') else "vw_DetailCustomer_Consultant"
     print(view)
     result = supabase.table(view)\
         .select('*')\
@@ -72,3 +78,12 @@ async def detail_user(user: user_dependency, customer: int = Query(gt=1)):
         .execute()
 
     return result.data
+
+@router.put("/description/", status_code=status.HTTP_204_NO_CONTENT)
+async def description_user(user: user_dependency, description: str, customer: int = Query(gt=1)):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    supabase.table('Customer')\
+        .update({ 'DescriptionSGR' if Role.Secretary.value in user.get('role') else 'DescriptionIST': description })\
+        .eq('IdWinC', customer)

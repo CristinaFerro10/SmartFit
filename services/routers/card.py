@@ -3,14 +3,11 @@ from typing import Annotated
 from fastapi import HTTPException, status, Depends, APIRouter
 from models.setmodels import CardRequest, CardInsert
 from routers.auth import get_current_user
-import os
 from dotenv import load_dotenv
 from database import supabase
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
 load_dotenv()
-exp_day: int = int(os.getenv("CARDS_EXPIRING_DAYS"))
-wrn_day: int = int(os.getenv("CARDS_WARNING_DAYS"))
 
 router = APIRouter(
     prefix='/card',

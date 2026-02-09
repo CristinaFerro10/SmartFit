@@ -40,3 +40,49 @@ class CardInsert(BaseModel):
     @field_serializer('DateEnd')
     def serialize_datetime(self, dt: datetime | None, _info):
         return dt.isoformat() if dt else None
+
+class PTRequest(BaseModel):
+    DateStart: datetime
+    CustomerId: int
+    SessionPTTypeId: int= Field(gt=1)
+
+    @field_serializer('DateStart')
+    def serialize_datetime(self, dt: datetime | None, _info):
+        return dt.isoformat() if dt else None
+
+class PTUpgradeRequest(BaseModel):
+    CustomerPTId: int
+    DateStart: datetime
+    SessionPTTypeId: int= Field(gt=1)
+    SessionAdded: int
+
+class PTUpgrade(BaseModel):
+    CustomerPTId: int
+    DateStart: datetime
+    SessionAdded: int
+    TrainingOperatorId: int
+
+    @field_serializer('DateStart')
+    def serialize_datetime(self, dt: datetime | None, _info):
+        return dt.isoformat() if dt else None
+
+class SessionPTRequest(BaseModel):
+    CustomerPTId: int
+    DateStart: datetime
+
+class SessionPT(BaseModel):
+    CustomerPTId: int
+    DateStart: datetime
+    TrainingOperatorId: int
+
+    @field_serializer('DateStart')
+    def serialize_datetime(self, dt: datetime | None, _info):
+        return dt.isoformat() if dt else None
+
+class CheckCustomerPTStatus(BaseModel):
+    TotalSession: int
+    SessionNumber: int
+
+class DeleteSessionRequest(BaseModel):
+    CustomerPTId: int
+    SessionPTId: int
