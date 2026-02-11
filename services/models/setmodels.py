@@ -13,7 +13,7 @@ class CustomerRequest(BaseModel):
 class CardRequest(BaseModel):
     CustomerId: int
     CustomerSubscriptionId: int
-    Rescheduled: bool
+    DateStart: datetime
     DurationWeek: int = Field(gt=1)
 
 class SubscriptionRequest(BaseModel):
@@ -32,6 +32,7 @@ class CustomerSubscriptionRequest(BaseModel):
 
 class CardInsert(BaseModel):
     DateEnd: datetime
+    DateStart: datetime
     CustomerId: int
     CustomerSubscriptionId: int
     TrainingOperatorId: int
@@ -39,7 +40,10 @@ class CardInsert(BaseModel):
 
     # Serializza automaticamente datetime in ISO string
     @field_serializer('DateEnd')
-    def serialize_datetime(self, dt: datetime | None, _info):
+    def serialize_date_end(self, dt: datetime | None, _info):
+        return dt.isoformat() if dt else None
+    @field_serializer('DateStart')
+    def serialize_date_start(self, dt: datetime | None, _info):
         return dt.isoformat() if dt else None
 
 class PTRequest(BaseModel):

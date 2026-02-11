@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Calendar, CreditCard, Pause, Undo, FileText, ClipboardList } from 'lucide-react';
-import { mockClients } from '../lib/mock-data';
-import { Customer, ClientPreviousState } from '../lib/types';
+import { ArrowLeft, Check, Calendar, CreditCard, Undo, FileText, ClipboardList } from 'lucide-react';
+import { Customer } from '../lib/types';
 import {
   formatDate,
   getExpirationText,
@@ -13,8 +12,9 @@ import { IndividualTraining } from '../components/individual-training';
 import { DateSelector } from '../components/date-selector';
 import { useClientStore } from '../stores/useClientStore';
 import { getCustomersDetailIST, updateDescription } from '../services/customer-service';
-import { getAuthData } from '../lib/auth';
 import Loading from '../components/ui/loading';
+import { newCard, rescheduleCard } from '../services/card-service';
+import { CustomerWarning } from '../lib/filtermodel';
 
 const DURATION_OPTIONS = [
   { label: '2', weeks: 2, days: 14 },
@@ -32,7 +32,6 @@ export function ClientDetail() {
     return <div>Nessun client selezionato</div>;
   }
 
-  const user = getAuthData();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,6 +53,10 @@ export function ClientDetail() {
       setClient(clientResp[0]);
       setDescription(clientResp[0]?.Description || '');
       setSelectedDuration(clientResp[0]?.DurationDays || 28);
+      if (clientResp[0]?.LastCardDateStart.toDateString() == new Date().toDateString()) {
+        setUpdatedToday(true);
+        setSelectedDate(new Date());
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -70,11 +73,8 @@ export function ClientDetail() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
 
-  const clientIndex = 0;
-
   // Check if undo is available from persistent state
-  const canUndo = !!client?.previousState;
-  const undoType = client?.lastActionType || null;
+  const canUndo = !!client?.LastCardId; // Undo available if there's a last card action to revert
 
   if (!client) {
     if (loading) {
@@ -126,76 +126,59 @@ export function ClientDetail() {
   const handleUpdateWorkoutPlan = () => {
     if (selectedDuration === 0 || client.CardAvailable === 0) return; // Don't allow update without valid duration or plans
 
-    // Save previous state for persistent undo
-    const previousState: ClientPreviousState = {
-      lastWorkoutPlanDate: client.LastCardDateStart,
-      workoutPlanDuration: client.DurationDays,
-      assignedInstructor: client.TrainingOperatorName,
-      workoutPlansUsed: client.workoutPlansUsed,
-      renewed: client.Renewed || false,
-    };
+    setCard();
+  };
 
-    // Update the client with today's date and selected duration
-    const updatedClient = {
-      ...client,
-      lastWorkoutPlanDate: selectedDate,
-      workoutPlanDuration: selectedDuration,
-      assignedInstructor: user?.id,
-      description: description,
-      renewed: false, // Clear riprogrammata state - EXIT FROM RESCHEDULED
-      workoutPlansUsed: client.workoutPlansUsed + 1, // Increment used plans
-      previousState, // Store for persistent undo
-      lastActionType: 'workout' as const,
-    };
-
-    setClient(updatedClient);
-    setUpdatedToday(true);
-    setSelectedDate(new Date()); // Reset date to today after action
-
-    // Update the mock data (in real app, this would be an API call)
-    mockClients[clientIndex] = updatedClient;
+  const setCard = async () => {
+    setLoading(true);
+    try {
+      await newCard({
+        CustomerId: client.IdWinC,
+        CustomerSubscriptionId: client.CustomerSubscriptionId!,
+        DurationWeek: selectedDuration / 7,
+        DateStart: selectedDate
+      });
+      await fetchCustomer();
+    } catch (error) {
+      console.error('Error creating new card:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRiprogrammata = () => {
-    // Save previous state for persistent undo
-    const previousState: ClientPreviousState = {
-      lastWorkoutPlanDate: client.LastCardDateStart,
-      workoutPlanDuration: client.DurationDays,
-      assignedInstructor: client.TrainingOperatorName,
-      workoutPlansUsed: client.workoutPlansUsed,
-      renewed: client.Renewed || false,
-    };
+    setRescheduled();
+  };
 
-    // Set the riprogrammata state - this does NOT consume a plan change
-    const updatedClient = {
-      ...client,
-      renewed: true,
-      description: description,
-      previousState, // Store for persistent undo
-      lastActionType: 'rescheduled' as const,
-    };
-
-    setClient(updatedClient);
-    mockClients[clientIndex] = updatedClient;
+  const setRescheduled = async () => {
+    setLoading(true);
+    try {
+      await rescheduleCard(client.LastCardId!);
+      await fetchCustomer();
+    } catch (error) {
+      console.error('Error rescheduling card:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUndo = () => {
-    if (!client.previousState) return;
+    if (!client.LastCardId) return;
 
     // Restore previous state
-    const restoredClient: Customer = {
-      ...client,
-      LastCardDateStart: client.previousState.lastWorkoutPlanDate,
-      DurationDays: client.previousState.workoutPlanDuration,
-      TrainingOperatorName: client.previousState.assignedInstructor,
-      workoutPlansUsed: client.previousState.workoutPlansUsed,
-      Renewed: client.previousState.renewed,
-      previousState: undefined, // Clear undo state after using it
-      lastActionType: undefined,
-    };
+    // const restoredClient: Customer = {
+    //   ...client,
+    //   LastCardDateStart: client.previousState.lastWorkoutPlanDate,
+    //   DurationDays: client.previousState.workoutPlanDuration,
+    //   TrainingOperatorName: client.previousState.assignedInstructor,
+    //   workoutPlansUsed: client.previousState.workoutPlansUsed,
+    //   Renewed: client.previousState.renewed,
+    //   previousState: undefined, // Clear undo state after using it
+    //   lastActionType: undefined,
+    // };
 
-    setClient(restoredClient);
-    mockClients[clientIndex] = restoredClient;
+    // setClient(restoredClient);
+    // mockClients[clientIndex] = restoredClient;
     setUpdatedToday(false);
   };
 
@@ -262,25 +245,25 @@ export function ClientDetail() {
       <div className="px-4 mx-auto">
         {/* Persistent Undo Alert - Full width above columns */}
         {canUndo && (
-          <div className={`rounded-lg border-2 p-4 mb-6 ${undoType === 'workout'
+          <div className={`rounded-lg border-2 p-4 mb-6 ${client?.Warning !== CustomerWarning.Rescheduled
             ? 'bg-green-50 border-green-300'
             : 'bg-blue-50 border-blue-300'
             }`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
-                <p className={`text-sm font-medium mb-1 ${undoType === 'workout' ? 'text-green-800' : 'text-blue-800'
+                <p className={`text-sm font-medium mb-1 ${client?.Warning !== CustomerWarning.Rescheduled ? 'text-green-800' : 'text-blue-800'
                   }`}>
-                  {undoType === 'workout' && `Ultima azione: Scheda di allenamento aggiornata il ${client.LastCardDateStart ? formatDate(client.LastCardDateStart) : 'N/A'}`}
-                  {undoType === 'rescheduled' && 'Ultima azione: Scheda riprogrammata'}
+                  {client?.Warning !== CustomerWarning.Rescheduled && `Ultima azione: Scheda di allenamento aggiornata il ${client.LastCardDateStart ? formatDate(client.LastCardDateStart) : 'N/A'}`}
+                  {client?.Warning == CustomerWarning.Rescheduled && 'Ultima azione: Scheda riprogrammata'}
                 </p>
-                <p className={`text-xs ${undoType === 'workout' ? 'text-green-600' : 'text-blue-600'
+                <p className={`text-xs ${client?.Warning !== CustomerWarning.Rescheduled ? 'text-green-600' : 'text-blue-600'
                   }`}>
                   Puoi annullare questa azione in qualsiasi momento
                 </p>
               </div>
               <button
                 onClick={handleUndo}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${undoType === 'workout'
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${client?.Warning !== CustomerWarning.Rescheduled
                   ? 'bg-green-600 text-white hover:bg-green-700'
                   : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
@@ -404,13 +387,25 @@ export function ClientDetail() {
 
               {/* Secondary Action Button - Riprogrammata */}
               {!isUpdatedToday && !client.Renewed && (
-                <button
-                  onClick={handleRiprogrammata}
-                  className="w-full py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                >
-                  {/* <Pause className="w-5 h-5" /> */}
-                  ⏸ Scheda riprogrammata
-                </button>
+                <div className="w-full flex flex-col gap-2">
+                  <button
+                    onClick={handleRiprogrammata}
+                    disabled={client.CardAvailable === 0 || client.CardsDone === 0}
+                    className="w-full py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    ⏸ Scheda riprogrammata
+                  </button>
+
+                  {/* Messaggio di errore sotto il pulsante */}
+                  {(client.CardAvailable === 0 || client.CardsDone === 0) && (
+                    <p className="text-[11px] text-red-500 font-medium px-1 flex items-center gap-1">
+                      <span>⚠</span>
+                      {client.CardAvailable === 0
+                        ? "Nessuna scheda disponibile nel piano del cliente."
+                        : "È necessario completare almeno una scheda per riprogrammare."}
+                    </p>
+                  )}
+                </div>
               )}
 
               {/* Success message for today's update */}

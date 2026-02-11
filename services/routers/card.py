@@ -28,11 +28,12 @@ async def create_card(user: user_dependency,card: CardRequest):
     result = supabase.table('Card')\
     .insert([
         CardInsert(
-            DateEnd=datetime.now(timezone.utc) + timedelta(weeks=card.DurationWeek),
+            DateEnd=card.DateStart + timedelta(weeks=card.DurationWeek),
             CustomerId=card.CustomerId,
             CustomerSubscriptionId=card.CustomerSubscriptionId,
             TrainingOperatorId=user.get('id'),
             DurationWeek=card.DurationWeek,
+            DateStart=card.DateStart
         ).model_dump()
     ]) \
     .execute()

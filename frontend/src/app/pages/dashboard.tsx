@@ -6,7 +6,8 @@ import { getFilterLabel, getMonthlyActivityCounters } from '../lib/utils';
 import { ClientCard } from '../components/client-card';
 import { getCustomersIST } from '../services/customer-service';
 import { CustomerOrderBy, CustomerWarning } from '../lib/filtermodel';
-import { getAuthData } from '../lib/auth';
+import Loading from '../components/ui/loading';
+import { useAuthStore } from '../stores/authStore';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -14,7 +15,8 @@ type MembershipFilter = 'all' | 'expiringSoon';
 type ClientTypeFilter = 'all' | 'mds';
 
 export function Dashboard() {
-  const user = getAuthData();
+  const { getUser } = useAuthStore();
+  const user = getUser();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [quickFilter, setQuickFilter] = useState<CustomerWarning | 'all'>('all');
@@ -283,7 +285,7 @@ export function Dashboard() {
 
         {/* Client List */}
         {loading ? (
-          <p>Loading...</p>
+          <Loading message="Caricamento clienti..." />
         ) : (quickFilter !== 'rescheduled' && customers.length > 0 ? (
           <div className="space-y-3 mb-6">
             {customers.map((client) => (

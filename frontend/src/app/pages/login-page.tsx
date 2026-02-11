@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAuthData } from '../lib/auth';
 import { login } from '../services/auth-service';
 import { useAuthStore } from '../stores/authStore';
 
