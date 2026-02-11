@@ -22,6 +22,7 @@ company: str = os.getenv("WELLNESS_COMPANY")
 usr: str = os.getenv("USN")
 psw: str = os.getenv("PSW")
 activity_sales: list[int]=json.loads(os.getenv("ACTIVITY_SALES", "[]"))
+days_range:int = int(os.getenv("DAYS_RANGE"))
 # Timeout personalizzato
 timeout = httpx.Timeout(
     connect=10.0,  # Tempo per connettersi
@@ -187,59 +188,62 @@ async def create_subscriptions():
 async def create_customer_subscription():
     token = await auth_manager.get_token(usr, psw)
     api_url = f"{curling}{company}/analysis/analysis_authorizations/search"
-    # TODO: mettere un loop di gg (che casomai scelgo nell'app settings)
     async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.post(
-            api_url,
-            headers={"Authorization": f"Bearer {token}"},
-            json={
-                "activityTypeIds": activity_sales,
-                "authEnd_range_start_days_delta": 200,
-                "authEnd_range_end_days_delta": 450,
-                "analysisClassName": "FliptonicAppDb.ViewModels.Analysis.Authorizations.AuthorizationExpirationStatsSearch",
-                "analysisResultMode": 0,
-                "customerStatus": 1,
-                "excludeAccessCountAuthorizations": False,
-                "includeAuthorizationsWithoutExpirationDate": False,
-                "exportCsv": False,
-                "analysisController": "Analysis_Authorizations"
-            }
-        )
+        days = 0
+        while days < 450:
+            response = await client.post(
+                api_url,
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "activityTypeIds": activity_sales,
+                    "authEnd_range_start_days_delta": days,
+                    "authEnd_range_end_days_delta": 450,
+                    "analysisClassName": "FliptonicAppDb.ViewModels.Analysis.Authorizations.AuthorizationExpirationStatsSearch",
+                    "analysisResultMode": 0,
+                    "customerStatus": 1,
+                    "excludeAccessCountAuthorizations": False,
+                    "includeAuthorizationsWithoutExpirationDate": False,
+                    "exportCsv": False,
+                    "analysisController": "Analysis_Authorizations"
+                }
+            )
 
-        if response.status_code == status.HTTP_200_OK:
-            sales_item = SalesResponse(**response.json())
-            to_create: list[CustomerSubscriptionRequest] = []
-            subscriptions = await find_all_db_subscriptions()
+            if response.status_code == status.HTTP_200_OK:
+                sales_item = SalesResponse(**response.json())
+                to_create: list[dict] = []
+                subscriptions = await find_all_db_subscriptions()
 
-            for item in sales_item.data.dataSet:
-                subscription: Subscription | None = next((c for c in subscriptions if c.Description == item.renewalSalePackageName or c.Description == item.salePackageName),
-                                                 None) if len(subscriptions) > 0 else None
-                #todo: capire come fare a prendere con main operator a null
-                if subscription and item.mainReferenceOperatorId:
-                    to_create.append(
-                        CustomerSubscriptionRequest(
-                            CustomerId= item.customerId,
-                            IdWinC=item.saleId,
-                            CreatedAt=item.saleDate,
-                            EndDate=item.end,
-                            StartDate=item.start,
-                            SubscriptionId=subscription.IdWinC
-                        ).model_dump()
-                    )
-                else:
-                    print(f'sub name: {item.renewalSalePackageName} sale pkg name: {item.salePackageName}')
+                for item in sales_item.data.dataSet:
+                    subscription: Subscription | None = next((c for c in subscriptions if c.Description == item.renewalSalePackageName or c.Description == item.salePackageName),
+                                                     None) if len(subscriptions) > 0 else None
+                    #todo: capire come fare a prendere con main operator a null
+                    if subscription and item.mainReferenceOperatorId:
+                        to_create.append(
+                            CustomerSubscriptionRequest(
+                                CustomerId= item.customerId,
+                                IdWinC=item.saleId,
+                                CreatedAt=item.saleDate,
+                                EndDate=item.end,
+                                StartDate=item.start,
+                                SubscriptionId=subscription.IdWinC,
+                                Renewed=item.renewed,
+                            ).model_dump()
+                        )
+                    else:
+                        print(f'sub name: {item.renewalSalePackageName} sale pkg name: {item.salePackageName}')
 
-            ids = [item.get("IdWinC") for item in to_create]
-            print(f"Duplicates: {[id for id, count in Counter(ids).items() if count > 1]}")
+                ids = [item.get("IdWinC") for item in to_create]
+                print(f"Duplicates days{days}: {[id for id, count in Counter(ids).items() if count > 1]}")
 
-            if to_create:
-                result = supabase.table('CustomerSubscription').upsert(
-                    to_create,
-                    on_conflict='IdWinC',
-                    count=CountMethod.exact
-                ).execute()
-                total_affected = len(result.data) if result.data else len(to_create)
-                print(f"Upsert completato: {total_affected} record processati")
+                if to_create:
+                    result = supabase.table('CustomerSubscription').upsert(
+                        to_create,
+                        on_conflict='IdWinC',
+                        count=CountMethod.exact
+                    ).execute()
+                    total_affected = len(result.data) if result.data else len(to_create)
+                    print(f"Upsert completato: {total_affected} record processati")
+                    days += days_range
         else:
             print(response.status_code)
             print(response.json())

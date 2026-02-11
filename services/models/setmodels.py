@@ -28,6 +28,7 @@ class CustomerSubscriptionRequest(BaseModel):
     EndDate: str
     CustomerId: int
     SubscriptionId: int
+    Renewed: bool
 
 class CardInsert(BaseModel):
     DateEnd: datetime
@@ -86,3 +87,7 @@ class CheckCustomerPTStatus(BaseModel):
 class DeleteSessionRequest(BaseModel):
     CustomerPTId: int
     SessionPTId: int
+
+class CustomerDescriptionRequest(BaseModel):
+    Description: str
+    CustomerId: int

@@ -1,9 +1,12 @@
 from typing import Annotated
 from fastapi import HTTPException, status, Depends, APIRouter, Query
 from postgrest import CountMethod
+from pydantic import Field
+
 from models.enumtype import Role, CustomerOrderBy
 from models.filter import CustomerDashboardISTFilter
 from models.pagination import PaginatedResponse
+from models.setmodels import CustomerDescriptionRequest
 from routers.auth import get_current_user
 from database import supabase
 from dotenv import load_dotenv
@@ -16,23 +19,23 @@ router = APIRouter(
     tags=['customer']
 )
 
-#user: user_dependency,
-#   if user is None:
-#       raise HTTPException(status_code=401, detail='Authentication Failed')
-@router.get("/dashboard/", status_code=status.HTTP_200_OK, response_model=PaginatedResponse[dict])
-async def list_users(
+@router.get("/dashboard", status_code=status.HTTP_200_OK, response_model=PaginatedResponse[dict])
+async def list_users(user: user_dependency,
     filters: CustomerDashboardISTFilter = Query()
 ):
-    #"vw_DashboardSecretary" if Role.Secretary.value in user.get('role') else "vw_DashboardConsultant"
-    query = supabase.table("vw_DashboardSecretary").select('*', count=CountMethod.exact)
+    if user is None:
+       raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    query = supabase.table("vw_DashboardSecretary" if Role.Secretary.value in user.get('role') else "vw_DashboardConsultant")\
+        .select('*', count=CountMethod.exact)
 
     if filters.CustomerName is not None:
         query.ilike('Name', f'%{filters.CustomerName}%')
 
     if filters.TrainerOperatorId is not None:
         query.eq('TrainingOperatorId', filters.TrainerOperatorId)
-    #elif filters.CustomerName is None:
-    #    query.eq('TrainingOperatorId', user.get('id'))
+    elif filters.CustomerName is None:
+        query.eq('TrainingOperatorId', user.get('id'))
 
     if filters.WarningType is not None:
         query.eq('Warning', filters.WarningType.value)
@@ -66,7 +69,7 @@ async def list_users(
         total=result.count,
     )
 
-@router.get("/detail/", status_code=status.HTTP_200_OK)
+@router.get("/detail", status_code=status.HTTP_200_OK)
 async def detail_user(user: user_dependency, customer: int = Query(gt=1)):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
@@ -79,11 +82,12 @@ async def detail_user(user: user_dependency, customer: int = Query(gt=1)):
 
     return result.data
 
-@router.put("/description/", status_code=status.HTTP_204_NO_CONTENT)
-async def description_user(user: user_dependency, description: str, customer: int = Query(gt=1)):
+@router.put("/description", status_code=status.HTTP_204_NO_CONTENT)
+async def description_user(user: user_dependency, params: CustomerDescriptionRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
 
     supabase.table('Customer')\
-        .update({ 'DescriptionSGR' if Role.Secretary.value in user.get('role') else 'DescriptionIST': description })\
-        .eq('IdWinC', customer)
+        .update({ 'DescriptionSGR' if Role.Secretary.value in user.get('role') else 'DescriptionIST': params.Description })\
+        .eq('IdWinC', params.CustomerId)\
+        .execute()

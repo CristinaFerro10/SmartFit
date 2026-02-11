@@ -38,14 +38,16 @@ async def get_user_by_username(username: str):
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     # verificare se è presente nel mio db
     user = await get_user_by_username(form_data.username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Utente non trovato o non abilitato")
     # se c'è bene, faccio login qui
     await auth_manager.get_token(form_data.username, form_data.password)
     # generare token da utilizzare per tutte le api
-    token = create_access_token(form_data.username, user.IdWinC, user.Role, timedelta(minutes=60))
+    token = create_access_token(form_data.username, user.IdWinC, user.Role, user.Name, timedelta(hours=6))
     return {'access_token': token, 'token_type': 'Bearer'}
 
-def create_access_token(username: str, user_id: int, role: list[str], expires_delta: timedelta):
-    encode = {'sub': username, 'id': user_id, 'role': role}
+def create_access_token(username: str, user_id: int, role: list[str], name: str, expires_delta: timedelta):
+    encode = {'sub': username, 'id': user_id, 'role': role, 'name': name}
     expires = datetime.now(timezone.utc) + expires_delta
     encode.update({'exp': expires})
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -56,8 +58,9 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
         username: str = payload.get('sub')
         user_id: int = payload.get('id')
         user_role: str = payload.get('role')
+        user_name: str = payload.get('name')
         if username is None or user_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail='Could not validate user')
-        return {'username': username, 'id': user_id, 'role': user_role}
+        return {'username': username, 'id': user_id, 'role': user_role, 'name': user_name}
     except JWTError:
         raise HTTPException(status_code=401, detail='Could not validate credentials')
