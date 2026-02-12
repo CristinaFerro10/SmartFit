@@ -24,7 +24,7 @@ export function ClientCard({ client }: ClientCardProps) {
       case CustomerWarning.Expired:
         return 'bg-red-50';
       case CustomerWarning.Rescheduled:
-        return 'bg-gray-50';
+        return 'bg-blue-50';
     }
   };
 
@@ -52,28 +52,26 @@ export function ClientCard({ client }: ClientCardProps) {
           </div>
 
           <div className="space-y-1.5 text-sm">
-            {client.Warning === CustomerWarning.Rescheduled ? (
-              <div className="text-gray-600 italic">
-                In attesa di attivazione del programma
+            <div className="flex items-center gap-2 text-gray-700">
+              <span className="font-medium">Scheda:</span>
+              {client.Warning === CustomerWarning.Rescheduled ? (
+                <span className="text-gray-600 italic">
+                  In attesa di attivazione del programma
+                </span>
+              ) : (
+                <span>{expirationText}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <span className="font-medium">Ultimo accesso:</span>
+              <span>{client.LastAccessDate ? formatDate(new Date(client.LastAccessDate)) : 'N/A'}</span>
+            </div>
+            {client.SubscriptionExpiring && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="inline-flex items-center text-xs px-2 py-1 bg-orange-100 text-orange-700 border border-orange-200 rounded">
+                  Abbonamento in scadenza
+                </span>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <span className="font-medium">Scheda:</span>
-                  <span>{expirationText}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <span className="font-medium">Ultimo accesso:</span>
-                  <span>{client.LastAccessDate ? formatDate(new Date(client.LastAccessDate)) : 'N/A'}</span>
-                </div>
-                {client.SubscriptionExpiring && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="inline-flex items-center text-xs px-2 py-1 bg-orange-100 text-orange-700 border border-orange-200 rounded">
-                      Abbonamento in scadenza
-                    </span>
-                  </div>
-                )}
-              </>
             )}
           </div>
         </div>

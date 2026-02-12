@@ -53,7 +53,7 @@ export function ClientDetail() {
       setClient(clientResp[0]);
       setDescription(clientResp[0]?.Description || '');
       setSelectedDuration(clientResp[0]?.DurationDays || 28);
-      if (clientResp[0]?.LastCardDateStart.toDateString() == new Date().toDateString()) {
+      if (clientResp[0]?.LastCardDateStart?.toDateString() == new Date().toDateString()) {
         setUpdatedToday(true);
         setSelectedDate(new Date());
       }

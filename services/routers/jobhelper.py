@@ -244,12 +244,12 @@ async def create_customer_subscription():
                     total_affected = len(result.data) if result.data else len(to_create)
                     print(f"Upsert completato: {total_affected} record processati")
                     days += days_range
-        else:
-            print(response.status_code)
-            print(response.json())
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate credentials'
-            )
+            else:
+                print(response.status_code)
+                print(response.json())
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate credentials'
+                )
 
 async def find_all_db_users_id() ->  list[IdModel]:
     users_db = supabase.table("User") \
@@ -270,6 +270,7 @@ async def find_all_db_customers() ->  list[Customer]:
 async def find_all_db_subscriptions() ->  list[Subscription]:
     subscriptions_db = supabase.table("Subscription") \
         .select("*") \
+        .eq('ValidAsSubscription', True)\
         .execute()
 
     return [Subscription(**item) for item in subscriptions_db.data]

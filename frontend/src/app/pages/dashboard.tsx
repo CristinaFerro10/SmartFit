@@ -286,13 +286,13 @@ export function Dashboard() {
         {/* Client List */}
         {loading ? (
           <Loading message="Caricamento clienti..." />
-        ) : (quickFilter !== 'rescheduled' && customers.length > 0 ? (
+        ) : (customers.length > 0 ? (
           <div className="space-y-3 mb-6">
             {customers.map((client) => (
               <ClientCard key={client.IdWinC} client={client} />
             ))}
           </div>
-        ) : quickFilter !== 'rescheduled' && customers.length === 0 ? (
+        ) : customers.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500">Nessun cliente trovato</p>
           </div>
