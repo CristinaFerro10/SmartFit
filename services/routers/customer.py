@@ -1,10 +1,11 @@
+from collections import Counter
 from typing import Annotated
 from fastapi import HTTPException, status, Depends, APIRouter, Query
 from postgrest import CountMethod
 from pydantic import Field
 
 from models.enumtype import Role, CustomerOrderBy
-from models.filter import CustomerDashboardISTFilter
+from models.filter import CustomerDashboardISTFilter, CustomerDashboardISTFilterPaginated
 from models.pagination import PaginatedResponse
 from models.setmodels import CustomerDescriptionRequest
 from routers.auth import get_current_user
@@ -21,30 +22,12 @@ router = APIRouter(
 
 @router.get("/dashboard", status_code=status.HTTP_200_OK, response_model=PaginatedResponse[dict])
 async def list_users(user: user_dependency,
-    filters: CustomerDashboardISTFilter = Query()
+    filters: CustomerDashboardISTFilterPaginated = Query()
 ):
-    if user is None:
-       raise HTTPException(status_code=401, detail='Authentication Failed')
-
-    query = supabase.table("vw_DashboardSecretary" if Role.Secretary.value in user.get('role') else "vw_DashboardConsultant")\
-        .select('*', count=CountMethod.exact)
-
-    if filters.CustomerName is not None:
-        query.ilike('Name', f'%{filters.CustomerName}%')
-
-    if filters.TrainerOperatorId is not None:
-        query.eq('TrainingOperatorId', filters.TrainerOperatorId)
-    elif filters.CustomerName is None:
-        query.eq('TrainingOperatorId', user.get('id'))
+    query = get_dashboard_filtered(filters, user)
 
     if filters.WarningType is not None:
         query.eq('Warning', filters.WarningType.value)
-
-    if filters.SubscriptionExpiring:
-        query.eq('SubscriptionExpiring', filters.SubscriptionExpiring)
-
-    if filters.IsMDSSubscription:
-        query.eq('IsMDSSub', filters.IsMDSSubscription)
 
     if filters.OrderBy is None or filters.OrderBy == CustomerOrderBy.Default.value:
         query.order('Warning', desc=True)
@@ -57,8 +40,6 @@ async def list_users(user: user_dependency,
     elif filters.OrderBy == CustomerOrderBy.LastCard.value:
         query.order('StartDate', desc=True, nullsfirst=False)
 
-    # TODO count all status -> in base anche ai filtri!!!
-    # faccio left join qui? trasformo la mia enum in vista?
     result = query\
         .offset(filters.get_offset())\
         .limit(filters.page_size)\
@@ -66,15 +47,26 @@ async def list_users(user: user_dependency,
 
     return PaginatedResponse[dict](
         items=result.data,
-        total=result.count,
+        total=result.count
     )
+
+@router.get("/dashboard/count", status_code=status.HTTP_200_OK)
+async def list_users(user: user_dependency,
+    filters: CustomerDashboardISTFilter = Query()
+):
+    query = get_dashboard_filtered(filters, user)
+
+    response = query.execute()
+    warning_counts = Counter(item['Warning'] for item in response.data)
+
+    return warning_counts
 
 @router.get("/detail", status_code=status.HTTP_200_OK)
 async def detail_user(user: user_dependency, customer: int = Query(gt=1)):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
     view: str = "vw_DetailCustomer_Secretary" if Role.Secretary.value in user.get('role') else "vw_DetailCustomer_Consultant"
-    print(view)
+
     result = supabase.table(view)\
         .select('*')\
         .eq('IdWinC', customer)\
@@ -91,3 +83,27 @@ async def description_user(user: user_dependency, params: CustomerDescriptionReq
         .update({ 'DescriptionSGR' if Role.Secretary.value in user.get('role') else 'DescriptionIST': params.Description })\
         .eq('IdWinC', params.CustomerId)\
         .execute()
+
+def get_dashboard_filtered(filters, user):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    query = supabase.table(
+        "vw_DashboardSecretary" if Role.Secretary.value in user.get('role') else "vw_DashboardConsultant") \
+        .select('*', count= CountMethod.exact)
+
+    if filters.CustomerName is not None:
+        query.ilike('Name', f'%{filters.CustomerName}%')
+
+    if filters.TrainerOperatorId is not None:
+        query.eq('TrainingOperatorId', filters.TrainerOperatorId)
+    elif filters.CustomerName is None:
+        query.eq('TrainingOperatorId', user.get('id'))
+
+    if filters.SubscriptionExpiring:
+        query.eq('SubscriptionExpiring', filters.SubscriptionExpiring)
+
+    if filters.IsMDSSubscription:
+        query.eq('IsMDSSub', filters.IsMDSSubscription)
+
+    return query

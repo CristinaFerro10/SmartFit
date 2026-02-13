@@ -18,6 +18,21 @@ const getCustomersIST = async (params: CustomerDashboardFilter) => {
     }
 };
 
+const getCountCustomersIST = async (params: CustomerDashboardFilter) => {
+    try {
+        const response = await api.get(
+            `${apiUrl}/dashboard/count`,
+            {
+                params: params
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error:', error);
+        throw error;
+    }
+};
+
 const getCustomersDetailIST = async (id: number) => {
     try {
         const response = await api.get(
@@ -51,4 +66,4 @@ const updateDescription = async (id: number, description: string) => {
     }
 };
 
-export { getCustomersIST, getCustomersDetailIST, updateDescription };
+export { getCustomersIST, getCustomersDetailIST, updateDescription, getCountCustomersIST };

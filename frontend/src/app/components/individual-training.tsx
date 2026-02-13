@@ -1,23 +1,42 @@
 import { useState, useRef, useEffect } from 'react';
 import { Users, Plus, CheckCircle, Undo, ChevronDown, ChevronUp, Package, X } from 'lucide-react';
-import { Customer, IndividualTrainingPackage, IndividualTrainingSession, IndividualTrainingSingleSession, PackageIntegration } from '../lib/types';
+import { Customer, IndividualTrainingActive, IndividualTrainingPackage, IndividualTrainingSession, IndividualTrainingSingleSession, PackageIntegration } from '../lib/types';
 import { formatDate } from '../lib/utils';
 import { DateSelector } from './date-selector';
+import { activePackageGet } from '../services/pt-service';
 
 const INSTRUCTOR_NAME = 'Davide';
 
 interface IndividualTrainingProps {
   client: Customer;
-  onUpdate: (updatedClient: Customer) => void;
 }
 
-export function IndividualTraining({ client, onUpdate }: IndividualTrainingProps) {
+export function IndividualTraining({ client }: IndividualTrainingProps) {
+  useEffect(() => {
+    fetchPT();
+  }, []);
+
+  // Find the client
+  const fetchPT = async () => {
+    setLoading(true);
+    try {
+      const response = await activePackageGet(client.IdWinC);
+      setActivePT(response[0]);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
   const [showIntegrationMenu, setShowIntegrationMenu] = useState(false);
   const [showPackageHistory, setShowPackageHistory] = useState(false);
   const [showIntegrationsHistory, setShowIntegrationsHistory] = useState(false);
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [loading, setLoading] = useState(false);
+  const [activePT, setActivePT] = useState<IndividualTrainingActive | undefined>()
 
   // Temporary undo state - only exists during current navigation session
   const [lastSessionUndo, setLastSessionUndo] = useState<IndividualTrainingSession | null>(null);
@@ -461,8 +480,8 @@ export function IndividualTraining({ client, onUpdate }: IndividualTrainingProps
     onUpdate(updatedClient);
   };
 
-  const progressPercentage = hasActivePackage && totalSessions > 0
-    ? (completedSessions / totalSessions) * 100
+  const progressPercentage = activePT && activePT.SessionNumber > 0
+    ? (activePT.TotalSession / activePT.SessionNumber) * 100
     : 0;
 
   const remainingSessions = hasActivePackage ? totalSessions - completedSessions : 0;
@@ -552,51 +571,18 @@ export function IndividualTraining({ client, onUpdate }: IndividualTrainingProps
         </div>
       )}
 
-      {/* Available Single Sessions Notice */}
-      {availableSingleSessions > 0 && !hasActivePackage && (
-        <div className="mb-4 bg-gray-50 border border-gray-300 rounded-lg p-4">
-          <div className="flex items-start gap-2 mb-3">
-            <Package className="w-5 h-5 text-gray-600 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1">
-                Pacchetto PT attivo - {availableSingleSessions === 1 ? 'Sessione singola' : `${availableSingleSessions} Sessioni singole`}
-              </h3>
-              <p className="text-sm text-gray-700">
-                Totale sessioni: <strong>{availableSingleSessions}</strong> · Completate: <strong>0</strong> · Rimanenti: <strong>{availableSingleSessions}</strong>
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                {availableSingleSessions === 1
-                  ? `Data acquisto: ${formatDate(singleSessions.find(s => s.status === 'available')!.purchaseDate)}`
-                  : `${availableSingleSessions} sessioni acquistate separatamente`
-                }
-              </p>
-            </div>
-          </div>
-
-          {/* Progress Bar with Progressive Colors */}
-          <div className="mt-3">
-            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-              <div
-                className="h-full transition-all bg-green-500"
-                style={{ width: '0%' }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Active Package Info */}
-      {hasActivePackage && (
+      {activePT && activePT.SessionNumber > 1 && (
         <div className="mb-4 bg-gray-50 border border-gray-300 rounded-lg p-4">
           <div className="flex items-start gap-2 mb-3">
             <Package className="w-5 h-5 text-gray-600 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1">Pacchetto PT attivo</h3>
+              <h3 className="font-semibold text-gray-900 mb-1">Pacchetto PT attivo {activePT.SessionNumber === 1 && (' - Sessione singola')}</h3>
               <p className="text-sm text-gray-700">
-                Totale sessioni: <strong>{totalSessions}</strong> · Completate: <strong>{completedSessions}</strong> · Rimanenti: <strong>{remainingSessions}</strong>
+                Totale sessioni: <strong>{activePT.SessionNumber}</strong> · Completate: <strong>{activePT.TotalSession}</strong> · Rimanenti: <strong>{activePT.RemainingSession}</strong>
               </p>
               <p className="text-xs text-gray-600 mt-1">
-                Data acquisto: {formatDate(activePackage.purchaseDate)}
+                Data acquisto: {formatDate(new Date(activePT.DateStart))}
               </p>
             </div>
           </div>
@@ -693,9 +679,6 @@ export function IndividualTraining({ client, onUpdate }: IndividualTrainingProps
           )}
         </div>
       )}
-
-      {/* Completed Package Notice - REMOVED: no longer blocking */}
-      {/* The section will always show purchase options when no active package */}
 
       {/* Pending Purchase Confirmation */}
       {pendingPurchaseType && (

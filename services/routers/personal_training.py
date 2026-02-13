@@ -43,7 +43,9 @@ async def get_active_package(user: user_dependency, customer_id: int):
             SessionHistory=[] if sessionHistory.data is None else sessionHistory.data,
             IntegrationHistory=[] if integrationHistory.data is None else integrationHistory.data,
             Id=customerPT.Id,
-            SessionNumber=customerPT.SessionNumber
+            SessionNumber=customerPT.SessionNumber,
+            TotalSession=customerPT.TotalSession,
+            RemainingSession=customerPT.SessionNumber-customerPT.TotalSession
         )
     else:
         return None

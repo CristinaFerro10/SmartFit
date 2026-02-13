@@ -34,6 +34,18 @@ class Customer(BaseModel):
     TrainingOperatorId: int | None
     Enabled: bool
 
+class Card(BaseModel):
+    Id: int
+    Rescheduled: bool
+    Enabled: bool
+    Uploaded: bool
+    CustomerId: int
+    TrainingOperatorId: int
+    DateStart: datetime
+    DateEnd: datetime
+    CustomerSubscriptionId: int
+    DurationWeek: int
+
 class IdModel(BaseModel):
     IdWinC: int
 
@@ -41,10 +53,12 @@ class CustomerPTModel(BaseModel):
     Id: int
     SessionNumber: int
     DateStart: datetime
+    TotalSession: int
 
 class CustomerPTActiveModel(CustomerPTModel):
     IntegrationHistory: list[dict]
     SessionHistory: list[dict]
+    RemainingSession: int
 
 class PackageHistoryModel(BaseModel):
     SessionId: int

@@ -28,4 +28,16 @@ const rescheduleCard = async (id: number) => {
     }
 };
 
-export { rescheduleCard, newCard };
+const undoCard = async (id: number) => {
+    try {
+        const response = await api.put(
+            `${apiUrl}/undo/${id}`,
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error:', error);
+        throw error;
+    }
+};
+
+export { rescheduleCard, newCard, undoCard };

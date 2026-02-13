@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, SlidersHorizontal, X, ClipboardList } from 'lucide-react';
 import { mockClients } from '../lib/mock-data';
-import { Customer } from '../lib/types';
+import { CountCustomer, Customer } from '../lib/types';
 import { getFilterLabel, getMonthlyActivityCounters } from '../lib/utils';
 import { ClientCard } from '../components/client-card';
-import { getCustomersIST } from '../services/customer-service';
+import { getCountCustomersIST, getCustomersIST } from '../services/customer-service';
 import { CustomerOrderBy, CustomerWarning } from '../lib/filtermodel';
 import Loading from '../components/ui/loading';
 import { useAuthStore } from '../stores/authStore';
@@ -24,6 +24,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalCustomers, setTotalCustomers] = useState(0);
+  const [countCustomers, setCountCustomers] = useState<CountCustomer | undefined>(undefined);
   const [instructors, setInstructors] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
@@ -38,8 +39,33 @@ export function Dashboard() {
 
   // GET - Carica users all'avvio
   useEffect(() => {
+    fetchCountCustomers();
+  }, [searchQuery, instructorFilter, membershipFilter, clientTypeFilter]);
+
+  useEffect(() => {
     fetchCustomers();
-  }, [currentPage, searchQuery, quickFilter, instructorFilter, membershipFilter, clientTypeFilter, sortBy]);
+  }, [currentPage, quickFilter, sortBy, searchQuery, instructorFilter, membershipFilter, clientTypeFilter]);
+
+  // Reset to page 1 when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [searchQuery, quickFilter, instructorFilter, membershipFilter, clientTypeFilter, sortBy]);
+  
+  // Paginate clients
+  const totalPages = Math.ceil(totalCustomers / ITEMS_PER_PAGE);
+
+  const fetchCountCustomers = async () => {
+    try {
+      const response = await getCountCustomersIST({
+        SubscriptionExpiring: membershipFilter === 'expiringSoon' ? true : undefined,
+        IsMDSSubscription: clientTypeFilter === 'mds' ? true : undefined,
+        CustomerName: searchQuery ? searchQuery : undefined,
+      });
+      setCountCustomers(response);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -61,14 +87,6 @@ export function Dashboard() {
       setLoading(false);
     }
   };
-
-  // Reset to page 1 when filters change
-  useMemo(() => {
-    setCurrentPage(1);
-  }, [searchQuery, quickFilter, instructorFilter, membershipFilter, clientTypeFilter, sortBy]);
-
-  // Paginate clients
-  const totalPages = Math.ceil(totalCustomers / ITEMS_PER_PAGE);
 
   const activeFiltersCount = [
     quickFilter !== 'all' ? 1 : 0,
@@ -106,7 +124,7 @@ export function Dashboard() {
           >
             <div className="text-2xl mb-1">🔴</div>
             <div className="font-semibold text-gray-900">Urgente</div>
-            <div className="text-2xl font-bold text-red-600">10</div>
+            <div className="text-2xl font-bold text-red-600">{countCustomers?.expired ?? 0}</div>
           </button>
 
           <button
@@ -118,7 +136,7 @@ export function Dashboard() {
           >
             <div className="text-2xl mb-1">🟡</div>
             <div className="font-semibold text-gray-900">Attenzione</div>
-            <div className="text-2xl font-bold text-yellow-600">5</div>
+            <div className="text-2xl font-bold text-yellow-600">{countCustomers?.warning ?? 0}</div>
           </button>
 
           <button
@@ -130,7 +148,7 @@ export function Dashboard() {
           >
             <div className="text-2xl mb-1">🟢</div>
             <div className="font-semibold text-gray-900">In Regola</div>
-            <div className="text-2xl font-bold text-green-600">8</div>
+            <div className="text-2xl font-bold text-green-600">{countCustomers?.ok ?? 0}</div>
           </button>
 
           <button
@@ -142,7 +160,7 @@ export function Dashboard() {
           >
             <div className="text-2xl mb-1">⏸</div>
             <div className="font-semibold text-gray-900">Riprogrammata</div>
-            <div className="text-2xl font-bold text-blue-600">6</div>
+            <div className="text-2xl font-bold text-blue-600">{countCustomers?.rescheduled ?? 0}</div>
           </button>
         </div>
 

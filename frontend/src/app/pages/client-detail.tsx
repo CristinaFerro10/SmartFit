@@ -13,7 +13,7 @@ import { DateSelector } from '../components/date-selector';
 import { useClientStore } from '../stores/useClientStore';
 import { getCustomersDetailIST, updateDescription } from '../services/customer-service';
 import Loading from '../components/ui/loading';
-import { newCard, rescheduleCard } from '../services/card-service';
+import { newCard, rescheduleCard, undoCard } from '../services/card-service';
 import { CustomerWarning } from '../lib/filtermodel';
 
 const DURATION_OPTIONS = [
@@ -165,21 +165,20 @@ export function ClientDetail() {
   const handleUndo = () => {
     if (!client.LastCardId) return;
 
-    // Restore previous state
-    // const restoredClient: Customer = {
-    //   ...client,
-    //   LastCardDateStart: client.previousState.lastWorkoutPlanDate,
-    //   DurationDays: client.previousState.workoutPlanDuration,
-    //   TrainingOperatorName: client.previousState.assignedInstructor,
-    //   workoutPlansUsed: client.previousState.workoutPlansUsed,
-    //   Renewed: client.previousState.renewed,
-    //   previousState: undefined, // Clear undo state after using it
-    //   lastActionType: undefined,
-    // };
+    setUndo();
+  };
 
-    // setClient(restoredClient);
-    // mockClients[clientIndex] = restoredClient;
-    setUpdatedToday(false);
+  const setUndo = async () => {
+    setLoading(true);
+    try {
+      await undoCard(client.LastCardId!);
+      await fetchCustomer();
+      setUpdatedToday(false);
+    } catch (error) {
+      console.error('Error undo card:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveDescription = async () => {
@@ -431,10 +430,6 @@ export function ClientDetail() {
             {/* Individual Training TODO*/}
             {/* <IndividualTraining
               client={client}
-              onUpdate={(updatedClient) => {
-                setClient(updatedClient);
-                mockClients[clientIndex] = updatedClient;
-              }}
             /> */}
           </div>
 

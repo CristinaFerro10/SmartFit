@@ -233,7 +233,7 @@ async def create_customer_subscription():
                         print(f'sub name: {item.renewalSalePackageName} sale pkg name: {item.salePackageName}')
 
                 ids = [item.get("IdWinC") for item in to_create]
-                print(f"Duplicates days{days}: {[id for id, count in Counter(ids).items() if count > 1]}")
+                print(f"Duplicates (days {days}): {[id for id, count in Counter(ids).items() if count > 1]}")
 
                 if to_create:
                     result = supabase.table('CustomerSubscription').upsert(
@@ -245,18 +245,14 @@ async def create_customer_subscription():
                     print(f"Upsert completato: {total_affected} record processati")
                     days += days_range
             else:
-                print(response.status_code)
-                print(response.json())
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate credentials'
+                    status_code=response.status_code, detail=response.json().get("message")
                 )
 
 async def find_all_db_users_id() ->  list[IdModel]:
     users_db = supabase.table("User") \
         .select("IdWinC") \
         .execute()
-        # TODO: poi prendere solo gli attivi
-        #.eq("Enabled", True) \
 
     return [IdModel(**item) for item in users_db.data]
 
