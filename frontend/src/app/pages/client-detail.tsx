@@ -12,7 +12,7 @@ import { IndividualTraining } from '../components/individual-training';
 import { DateSelector } from '../components/date-selector';
 import { useClientStore } from '../stores/useClientStore';
 import { getCustomersDetailIST, updateDescription } from '../services/customer-service';
-import Loading from '../components/ui/loading';
+import { Loading } from '../components/ui/loading';
 import { newCard, rescheduleCard, undoCard } from '../services/card-service';
 import { CustomerWarning } from '../lib/filtermodel';
 
@@ -72,9 +72,6 @@ export function ClientDetail() {
   const [customWeeks, setCustomWeeks] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
-
-  // Check if undo is available from persistent state
-  const canUndo = !!client?.LastCardId; // Undo available if there's a last card action to revert
 
   if (!client) {
     if (loading) {
@@ -243,7 +240,7 @@ export function ClientDetail() {
       {/* Two Column Layout */}
       <div className="px-4 mx-auto">
         {/* Persistent Undo Alert - Full width above columns */}
-        {canUndo && (
+        {client?.CanUndo && (
           <div className={`rounded-lg border-2 p-4 mb-6 ${client?.Warning !== CustomerWarning.Rescheduled
             ? 'bg-green-50 border-green-300'
             : 'bg-blue-50 border-blue-300'
@@ -408,7 +405,7 @@ export function ClientDetail() {
               )}
 
               {/* Success message for today's update */}
-              {isUpdatedToday && !canUndo && (
+              {isUpdatedToday && !client?.CanUndo && (
                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-700 font-medium">
                     ✓ Scheda allenamento aggiornata correttamente
@@ -417,7 +414,7 @@ export function ClientDetail() {
               )}
 
               {/* Info message for rescheduled state */}
-              {client.Renewed && !canUndo && (
+              {client.Renewed && !client?.CanUndo && (
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-700 font-medium">
                     ⏸ Cliente in stato RIPROGRAMMATA - In attesa di attivazione del programma
@@ -428,9 +425,9 @@ export function ClientDetail() {
 
             <div></div>
             {/* Individual Training TODO*/}
-            {/* <IndividualTraining
+            <IndividualTraining
               client={client}
-            /> */}
+            />
           </div>
 
           {/* RIGHT COLUMN - CONTEXT */}

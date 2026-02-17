@@ -2,10 +2,11 @@ from datetime import datetime, timezone, timedelta
 from itertools import count
 from typing import Annotated
 from fastapi import HTTPException, status, Depends, APIRouter
+from fastapi.params import Query
 from postgrest import CountMethod
 
 from models.setmodels import CardRequest, CardInsert
-from models.models import Card
+from models.models import Card, CardSummary
 from routers.auth import get_current_user
 from dotenv import load_dotenv
 from database import supabase
@@ -17,6 +18,24 @@ router = APIRouter(
     prefix='/card',
     tags=['card']
 )
+
+@router.get('/summary', status_code=status.HTTP_200_OK)
+async def card_summary(user: user_dependency, months: list[int] = Query()):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+    query = supabase.table('vw_SummaryCardByMonth')\
+        .select('*', count=CountMethod.exact)\
+        .eq('TrainingOperatorId', user.get('id'))
+
+    if months:
+        for month in months:
+            query.eq('Month', month)
+
+    result = query.execute()
+
+    #TODO: prendere anche i pt
+    return CardSummary(**result.data[0]) if result.count > 0 else None
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
 async def create_card(user: user_dependency,card: CardRequest):

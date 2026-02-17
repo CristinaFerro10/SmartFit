@@ -15,6 +15,19 @@ router = APIRouter(
     tags=['pt']
 )
 
+@router.get('/session/type', status_code=status.HTTP_200_OK)
+async def get_session_type(user: user_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    response = supabase.table('SessionPTType')\
+        .select('*')\
+        .eq('Enabled', True)\
+        .order('SessionNumber',desc=False)\
+        .execute()
+
+    return response.data
+
 @router.get('/package/active/{customer_id}', status_code=status.HTTP_200_OK)
 async def get_active_package(user: user_dependency, customer_id: int):
     if user is None:
@@ -74,29 +87,30 @@ async def get_history_packages(user: user_dependency, customer_id: int):
             TrainingOperatorName=lastSession.TrainingOperatorName,
             SessionNumber=lastSession.SessionNumber,
             DateStart=lastSession.DateStart,
+            CanUndo=lastSession.CanUndo,
+            CustomerPTId=lastSession.CustomerPTId,
             PackageHistory=[] if customerPTResponse.data is None else customerPTResponse.data
         )
     else:
         return None
 
-@router.post('/package/', status_code=status.HTTP_201_CREATED)
+@router.post('/package', status_code=status.HTTP_201_CREATED)
 async def create_package_pt(user: user_dependency, params: PTRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
 
-    result = supabase.table('CustomerPT')\
+    supabase.table('CustomerPT')\
     .insert([
         params.model_dump()
     ]) \
     .execute()
-     #result.data -> forse mi serve per aggiornare la scheda che visualizzo??
 
-@router.put('/package/', status_code=status.HTTP_201_CREATED)
+@router.put('/package/upgrade', status_code=status.HTTP_201_CREATED)
 async def update_package_pt(user: user_dependency, params: PTUpgradeRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
 
-    result = supabase.table('CustomerPTHistory')\
+    supabase.table('CustomerPTHistory')\
     .insert([
         PTUpgrade(
             DateStart=params.DateStart,
@@ -113,14 +127,13 @@ async def update_package_pt(user: user_dependency, params: PTUpgradeRequest):
     )\
     .eq('Id', params.CustomerPTId)\
     .execute()
-     #result.data -> forse mi serve per aggiornare la scheda che visualizzo??
 
-@router.post('/session/', status_code=status.HTTP_201_CREATED)
+@router.post('/session', status_code=status.HTTP_201_CREATED)
 async def create_session_pt(user: user_dependency, params: SessionPTRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
 
-    result = supabase.table('SessionPT')\
+    supabase.table('SessionPT')\
     .insert([
         SessionPT(
             DateStart=params.DateStart,
@@ -131,7 +144,7 @@ async def create_session_pt(user: user_dependency, params: SessionPTRequest):
     .execute()
 
     customerPTResponse = supabase.table('vw_ActiveCustomerPT')\
-        .select('TotalSession','SessionNumber')\
+        .select('TotalSession','SessionNumber','Id')\
         .eq('Id',params.CustomerPTId)\
         .execute()
 
@@ -140,18 +153,17 @@ async def create_session_pt(user: user_dependency, params: SessionPTRequest):
     if customerPT.TotalSession == customerPT.SessionNumber:
         supabase.table('CustomerPT')\
             .update({'Completed': True})\
-            .eq('Id', customerPT.CustomerPTId)\
+            .eq('Id', customerPT.Id)\
             .execute()
-     #result.data -> forse mi serve per aggiornare la scheda che visualizzo??
 
-@router.delete('/session/', status_code=status.HTTP_204_NO_CONTENT)
+@router.delete('/session', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_session_pt(user: user_dependency, params: DeleteSessionRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
 
     supabase.table('SessionPT')\
         .delete()\
-        .eq('Id', params.sessionPTId)\
+        .eq('Id', params.SessionPTId)\
         .execute()
 
     supabase.table('CustomerPT') \

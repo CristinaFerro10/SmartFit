@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, SlidersHorizontal, X, ClipboardList } from 'lucide-react';
-import { mockClients } from '../lib/mock-data';
 import { CountCustomer, Customer } from '../lib/types';
-import { getFilterLabel, getMonthlyActivityCounters } from '../lib/utils';
+import { getFilterLabel, MonthlyActivityCounters } from '../lib/utils';
 import { ClientCard } from '../components/client-card';
 import { getCountCustomersIST, getCustomersIST } from '../services/customer-service';
 import { CustomerOrderBy, CustomerWarning } from '../lib/filtermodel';
-import Loading from '../components/ui/loading';
+import { Loading } from '../components/ui/loading';
 import { useAuthStore } from '../stores/authStore';
+import { getMonthlyCounters as cardMonthlyCounters } from '../services/card-service';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -25,6 +25,7 @@ export function Dashboard() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [countCustomers, setCountCustomers] = useState<CountCustomer | undefined>(undefined);
+  const [monthlyCounters, setMonthlyCounters] = useState<MonthlyActivityCounters | undefined>(undefined);
   const [instructors, setInstructors] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
@@ -50,9 +51,22 @@ export function Dashboard() {
   useMemo(() => {
     setCurrentPage(1);
   }, [searchQuery, quickFilter, instructorFilter, membershipFilter, clientTypeFilter, sortBy]);
-  
+
   // Paginate clients
   const totalPages = Math.ceil(totalCustomers / ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    fetchMonthlyCounters();
+  }, []);
+
+  const fetchMonthlyCounters = async () => {
+    try {
+      const response = await cardMonthlyCounters([new Date().getMonth() + 1]); // Pass current month and flag to get monthly counters
+      setMonthlyCounters(response);
+    } catch (error) {
+      console.error('Error fetching monthly counters:', error);
+    }
+  };
 
   const fetchCountCustomers = async () => {
     try {
@@ -103,9 +117,6 @@ export function Dashboard() {
     setSortBy(CustomerOrderBy.Default);
     setSearchQuery('');
   };
-
-  // Calculate monthly activity counters
-  const monthlyCounters = useMemo(() => getMonthlyActivityCounters(mockClients), []);
 
   // Get current month name
   const currentMonthName = new Intl.DateTimeFormat('it-IT', { month: 'long' }).format(new Date());
@@ -165,7 +176,7 @@ export function Dashboard() {
         </div>
 
         {/* Monthly Activity Counters - Only visible in main Dashboard view (no filters active) */}
-        {monthlyCounters.total > 0 &&
+        {monthlyCounters &&
           quickFilter === 'all' &&
           instructorFilter === 'all' &&
           membershipFilter === 'all' &&
@@ -184,35 +195,35 @@ export function Dashboard() {
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                     <div className="text-xs text-gray-500 mb-2">(nuovi clienti)</div>
-                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters.firstPlanNew}</div>
+                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters?.FirstCardNewCustomer}</div>
                   </div>
 
                   {/* First Plan - Renewal */}
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                     <div className="text-xs text-gray-500 mb-2">(rinnovi)</div>
-                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters.firstPlanRenewal}</div>
+                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters?.FirstCardRenewed}</div>
                   </div>
 
                   {/* Plan Changes */}
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <div className="text-xs text-gray-600 mb-1">Modifiche schede</div>
                     <div className="text-xs text-gray-500 mb-2">(progressioni)</div>
-                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters.planChanges}</div>
+                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters?.UpdatesCard}</div>
                   </div>
 
                   {/* Individual Training (PT) */}
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <div className="text-xs text-gray-600 mb-1">Allenamenti</div>
                     <div className="text-xs text-gray-500 mb-2">(individuali PT)</div>
-                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters.individualTraining}</div>
+                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters?.IndividualTraining}</div>
                   </div>
 
                   {/* Total - Uniform styling with other counters */}
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <div className="text-xs text-gray-600 mb-1">Totale attività</div>
                     <div className="text-xs text-gray-500 mb-2">(questo mese)</div>
-                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters.total}</div>
+                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters?.TotalCards}</div>
                   </div>
                 </div>
 

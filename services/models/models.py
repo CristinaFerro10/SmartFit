@@ -65,6 +65,8 @@ class PackageHistoryModel(BaseModel):
     TrainingOperatorName: str
     DateStart: datetime
     SessionNumber: int
+    CanUndo: bool
+    CustomerPTId: int
     PackageHistory: list[dict]
 
 class SessionPTHistoryModel(BaseModel):
@@ -74,3 +76,12 @@ class SessionPTHistoryModel(BaseModel):
     Id: int
     CustomerId: int
     SessionNumber: int
+    CanUndo: bool
+
+class CardSummary(BaseModel):
+    TrainingOperatorId: int
+    FirstCardNewCustomer: int
+    FirstCardRenewed: int
+    UpdatesCard: int
+    TotalCards: int
+    Month: int

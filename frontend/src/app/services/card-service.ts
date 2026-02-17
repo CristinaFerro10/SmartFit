@@ -3,6 +3,23 @@ import api from './api-service';
 
 const apiUrl = '/card';
 
+const cardMonthlyCounters = async (months: number[] | null) => {
+    try {
+        const params = new URLSearchParams();
+        months?.forEach(month => params.append('months', month.toString()));
+
+        const response = await api.get(
+            `${apiUrl}/summary`,
+            { params }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching monthly counters:', error);
+        throw error;
+    }
+};
+
+
 const newCard = async (params: CardRequest) => {
     try {
         const response = await api.post(
@@ -11,7 +28,7 @@ const newCard = async (params: CardRequest) => {
         );
         return response.data;
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error creating new card:', error);
         throw error;
     }
 };
@@ -23,7 +40,7 @@ const rescheduleCard = async (id: number) => {
         );
         return response.data;
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error rescheduling card:', error);
         throw error;
     }
 };
@@ -35,9 +52,9 @@ const undoCard = async (id: number) => {
         );
         return response.data;
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error undoing card:', error);
         throw error;
     }
 };
 
-export { rescheduleCard, newCard, undoCard };
+export { rescheduleCard, newCard, undoCard, cardMonthlyCounters as getMonthlyCounters };

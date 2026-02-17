@@ -47,9 +47,9 @@ class CardInsert(BaseModel):
         return dt.isoformat() if dt else None
 
 class PTRequest(BaseModel):
-    DateStart: datetime
+    DateStart: datetime = Field(default_factory=datetime.now)
     CustomerId: int
-    SessionPTTypeId: int= Field(gt=1)
+    SessionPTTypeId: int= Field(gt=0)
 
     @field_serializer('DateStart')
     def serialize_datetime(self, dt: datetime | None, _info):
@@ -58,7 +58,7 @@ class PTRequest(BaseModel):
 class PTUpgradeRequest(BaseModel):
     CustomerPTId: int
     DateStart: datetime
-    SessionPTTypeId: int= Field(gt=1)
+    SessionPTTypeId: int= Field(gt=0)
     SessionAdded: int
 
 class PTUpgrade(BaseModel):
@@ -85,6 +85,7 @@ class SessionPT(BaseModel):
         return dt.isoformat() if dt else None
 
 class CheckCustomerPTStatus(BaseModel):
+    Id: int
     TotalSession: int
     SessionNumber: int
 
