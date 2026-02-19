@@ -3,7 +3,7 @@ import { Users, Plus, CheckCircle, Undo, ChevronDown, ChevronUp, Package, X } fr
 import { Customer, IndividualTrainingActive, IndividualTrainingHistory, IndividualTrainingPackage, IndividualTrainingSession, IndividualTrainingSingleSession, PackageIntegration, SessionPackageType } from '../lib/types';
 import { formatDate } from '../lib/utils';
 import { DateSelector } from './date-selector';
-import { activePackageGet, completeSession, deleteLastSession, historyPackage, newPackage, sessionPackageTypeGet } from '../services/pt-service';
+import { activePackageGet, completeSession, deleteLastSession, historyPackage, newPackage, sessionPackageTypeGet, upgradePackage } from '../services/pt-service';
 import { LoadingContent } from './ui/loading';
 
 interface IndividualTrainingProps {
@@ -52,11 +52,7 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
 
   // Confirmation states
   const [pendingPurchaseType, setPendingPurchaseType] = useState<SessionPackageType | null>(null);
-  const [pendingIntegration, setPendingIntegration] = useState<{
-    sessions: number;
-    type: 'integration-10' | 'integration-20';
-    description: string;
-  } | null>(null);
+  const [pendingIntegration, setPendingIntegration] = useState<SessionPackageType | null>(null);
 
   const availableSessions = (activePT?.RemainingSession ?? 0) > 0;
 
@@ -81,19 +77,23 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
     setPendingPurchaseType(null);
   };
 
-  const handleConfirmIntegration = () => {
+  const handleConfirmIntegration = async () => {
     if (!pendingIntegration || !hasActivePackage) return;
 
-    const newIntegration: PackageIntegration = {
-      id: `int-${client.IdWinC}-${Date.now()}`,
-      date: new Date(),
-      addedSessions: pendingIntegration.sessions,
-      upgradeType: pendingIntegration.type === 'integration-10' ? 'upgrade-10' : 'upgrade-20',
-      description: pendingIntegration.description,
-    };
-
-    setPendingIntegration(null);
-    setShowIntegrationMenu(false);
+    setLoading(true);
+    try {
+      await upgradePackage({
+        CustomerPTId: activePT?.Id!,
+        DateStart: selectedDate,
+        SessionAdded: pendingIntegration.SessionNumber - (activePT?.SessionNumber ?? 0),
+        SessionPTTypeId: pendingIntegration.Id,
+      });
+      setPendingIntegration(null);
+      setShowIntegrationMenu(false);
+      await fetchPT();
+    } catch (error) {
+      console.error('Error upgrading package:', error);
+    }
   };
 
   const handleCancelIntegration = () => {
@@ -113,8 +113,6 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
       await fetchPT();
     } catch (error) {
       console.error('Error completing session:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -154,49 +152,12 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
 
   // Get integration options
   const getIntegrationOptions = () => {
-    if (!hasActivePackage) return [];
-    return [];
-    // const currentSize = activePackage?.initialPackageSize ?? 0;
-    // const currentTotal = activePackage?.totalSessions ?? 0;
-    // const options = [];
+    if (!hasActivePackage || (activePT?.SessionNumber ?? 0) <= 1) return [];
 
-    // // Pacchetto 5 → può integrare a 10 o 20
-    // if (currentSize === 5) {
-    //   if (currentTotal < 10) {
-    //     options.push({
-    //       sessions: 10 - currentTotal,
-    //       type: 'integration-10' as const,
-    //       label: 'Integrazione a 10 sessioni',
-    //       description: `Aggiungi ${10 - currentTotal} sessioni al pacchetto`,
-    //     });
-    //   }
-    //   if (currentTotal < 20) {
-    //     options.push({
-    //       sessions: 20 - currentTotal,
-    //       type: 'integration-20' as const,
-    //       label: 'Integrazione a 20 sessioni',
-    //       description: `Aggiungi ${20 - currentTotal} sessioni al pacchetto`,
-    //     });
-    //   }
-    // }
-
-    // // Pacchetto 10 → può integrare solo a 20
-    // if (currentSize === 10 && currentTotal < 20) {
-    //   options.push({
-    //     sessions: 20 - currentTotal,
-    //     type: 'integration-20' as const,
-    //     label: 'Integrazione a 20 sessioni',
-    //     description: `Aggiungi ${20 - currentTotal} sessioni al pacchetto`,
-    //   });
-    // }
-
-    // // Pacchetto 20 → nessuna integrazione disponibile
-    // // (non aggiungiamo nulla)
-
-    // return options;
+    return purchaseType?.filter(type => type.SessionNumber > (activePT?.SessionNumber ?? 0))
   };
 
-  const canShowIntegrationButton = hasActivePackage && getIntegrationOptions().length > 0;
+  const canShowIntegrationButton = hasActivePackage && (getIntegrationOptions()?.length ?? 0) > 0;
 
   return (loading ? (
     <LoadingContent message="Caricamento allenamenti individuali..." />
@@ -271,25 +232,25 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
           </div>
 
           {/* Integrations History Toggle */}
-          {/* {activePackage && activePackage?.integrations.length > 0 && (
+          {(activePT.IntegrationHistory?.length ?? 0) > 0 && (
             <div className="mt-3">
               <button
                 onClick={() => setShowIntegrationsHistory(!showIntegrationsHistory)}
                 className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 font-medium"
               >
                 {showIntegrationsHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                Storico integrazioni ({activePackage?.integrations.length})
+                Storico integrazioni ({activePT.IntegrationHistory?.length})
               </button>
 
               {showIntegrationsHistory && (
                 <div className="mt-2 space-y-2">
-                  {activePackage?.integrations.map((integration) => (
-                    <div key={integration.id} className="bg-white border border-gray-300 rounded p-3">
+                  {activePT.IntegrationHistory?.map((integration, index) => (
+                    <div key={index} className="bg-white border border-gray-300 rounded p-3">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{integration.description}</p>
+                          <p className="text-sm font-medium text-gray-900">Aggiunte {integration.SessionAdded} sessioni al pacchetto</p>
                           <p className="text-xs text-gray-600 mt-1">
-                            {formatDate(integration.date)} · +{integration.addedSessions} sessioni
+                            {formatDate(new Date(integration.DateStart))}
                           </p>
                         </div>
                         <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
@@ -301,7 +262,7 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
                 </div>
               )}
             </div>
-          )} */}
+          )}
 
           {/* Session History for Active Package */}
           {(activePT.SessionHistory?.length ?? 0) > 0 && (
@@ -383,7 +344,7 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
                 ⚠️ Conferma integrazione
               </p>
               <p className="text-sm text-yellow-800">
-                {pendingIntegration.description} (+{pendingIntegration.sessions} sessioni)
+                Aggiungi {pendingIntegration.SessionNumber - (activePT?.SessionNumber ?? 0)} sessioni al pacchetto
               </p>
             </div>
             <div className="flex gap-2">
@@ -442,7 +403,7 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
             {showIntegrationMenu && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-300 rounded-lg shadow-lg z-10">
                 <div className="p-2 space-y-1">
-                  {getIntegrationOptions().map((option, index) => (
+                  {getIntegrationOptions()?.map((option, index) => (
                     <button
                       key={index}
                       onClick={() => {
@@ -451,8 +412,8 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
                       }}
                       className="w-full text-left px-4 py-2 rounded hover:bg-gray-100 transition-colors"
                     >
-                      {/* <span className="font-medium">{option.label}</span>
-                      <span className="text-xs text-gray-500 block">{option.description}</span> */}
+                      <span className="font-medium">Integrazione a {option.SessionNumber} sessioni</span>
+                      <span className="text-xs text-gray-500 block">Aggiungi {option.SessionNumber - (activePT?.SessionNumber ?? 0)} sessioni al pacchetto</span>
                     </button>
                   ))}
                 </div>
