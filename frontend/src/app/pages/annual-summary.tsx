@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Trash2, Filter, X } from 'lucide-react';
+import { cardMonthlyCounters } from '../services/card-service';
+import { MonthlyActivityCounters } from '../lib/utils';
 
 // Mock data for current year (2026)
 // In a real app, this would come from a database/API
 const MOCK_YEAR_DATA = {
-  year: 2026,
+  year: 2024,
   months: [
     { month: 0, firstPlanNew: 5, firstPlanRenewal: 8, planChanges: 15, individualTraining: 12, firstPlanNewMDS: 2, firstPlanRenewalMDS: 3, planChangesMDS: 5, individualTrainingMDS: 4 },
     { month: 1, firstPlanNew: 6, firstPlanRenewal: 10, planChanges: 18, individualTraining: 15, firstPlanNewMDS: 2, firstPlanRenewalMDS: 4, planChangesMDS: 6, individualTrainingMDS: 5 },
@@ -21,6 +23,8 @@ const MOCK_YEAR_DATA = {
     { month: 11, firstPlanNew: 0, firstPlanRenewal: 0, planChanges: 0, individualTraining: 0, firstPlanNewMDS: 0, firstPlanRenewalMDS: 0, planChangesMDS: 0, individualTrainingMDS: 0 }, // Future month
   ]
 };
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 type PlanType = 'firstPlanNew' | 'firstPlanRenewal' | 'planChanges' | 'individualTraining';
 type ClientTypeFilter = 'all' | 'standard' | 'mds';
@@ -50,6 +54,8 @@ export function AnnualSummary() {
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]); // Empty = all months
   const [selectedPlanTypes, setSelectedPlanTypes] = useState<PlanType[]>([]); // Empty = all types
   const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>('all');
+  const [monthlyCounters, setMonthlyCounters] = useState<MonthlyActivityCounters[] | undefined>(undefined);
+  const [monthPlan, setMonthPlan] = useState<{ month: number, name: string, isFuture: boolean, counters?: MonthlyActivityCounters }[] | undefined>(undefined);
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth(); // 0-based (0 = January)
@@ -60,6 +66,21 @@ export function AnnualSummary() {
   // Helpers for "all" state
   const isAllMonthsSelected = selectedMonths.length === 0;
   const isAllPlanTypesSelected = selectedPlanTypes.length === 0;
+
+  useEffect(() => {
+    fetchMonthlyCounters();
+  }, []);
+
+  const fetchMonthlyCounters = async () => {
+    try {
+      // TODO cambiare con filtro impostato
+      const response = await cardMonthlyCounters(null, new Date().getFullYear()); // Pass current month and flag to get monthly counters
+      setMonthlyCounters(response);
+      setMonthPlan(getMonthPlan(new Date().getFullYear(), response as MonthlyActivityCounters[] | undefined));
+    } catch (error) {
+      console.error('Error fetching monthly counters:', error);
+    }
+  };
 
   // Toggle month selection
   const toggleMonth = (monthIndex: number) => {
@@ -72,11 +93,6 @@ export function AnnualSummary() {
     });
   };
 
-  // Toggle all months
-  const toggleAllMonths = () => {
-    setSelectedMonths([]);
-  };
-
   // Toggle plan type selection
   const togglePlanType = (planType: PlanType) => {
     setSelectedPlanTypes(prev => {
@@ -86,11 +102,6 @@ export function AnnualSummary() {
         return [...prev, planType];
       }
     });
-  };
-
-  // Toggle all plan types
-  const toggleAllPlanTypes = () => {
-    setSelectedPlanTypes([]);
   };
 
   // Process data based on filters
@@ -203,35 +214,10 @@ export function AnnualSummary() {
               <p className="text-sm text-gray-600">Andamento mensile delle schede allenamento</p>
             </div>
           </div>
-
-          {/* Reset Button - Secondary Action */}
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-red-50 border border-gray-300 hover:border-red-300 rounded-lg transition-colors text-sm text-gray-700 hover:text-red-700"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span className="font-medium">Azzera dati annuali</span>
-          </button>
         </div>
       </div>
 
-      <div className="px-4 max-w-6xl mx-auto">
-        {/* Previous Year Data Notice */}
-        {hasPreviousYearData && (
-          <div className="mb-6 bg-amber-50 border border-amber-300 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <div className="text-amber-600 text-2xl">ℹ️</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-amber-900 mb-1">Dati anno precedente ancora visibili</h3>
-                <p className="text-sm text-amber-800">
-                  Stai visualizzando i dati dell'anno {MOCK_YEAR_DATA.year}.
-                  Puoi analizzare tranquillamente i dati dell'anno precedente e azzerarli quando sei pronto.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
+      <div className="px-4 mx-auto">
         {/* Filter Button */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -350,9 +336,7 @@ export function AnnualSummary() {
           <h2 className="font-semibold text-lg text-gray-900 mb-6">Dettaglio Mensile</h2>
 
           <div className="space-y-3">
-            {processedData.map((month, index) => {
-              const hasData = month.total > 0;
-
+            {monthPlan?.map((month, index) => {
               return (
                 <div
                   key={index}
@@ -362,21 +346,21 @@ export function AnnualSummary() {
                   {/* Month Name */}
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="font-medium text-gray-900 capitalize text-base min-w-[100px]">
-                      {month.monthName}
+                      {month.name}
                     </h3>
                     {month.isFuture && (
                       <span className="text-xs text-gray-500 font-normal italic">(dati non ancora disponibili)</span>
                     )}
                   </div>
 
-                  {hasData ? (
+                  {month.counters ? (
                     <div className="grid grid-cols-5 gap-3">
                       {/* Prime schede (nuovi) */}
                       {isPlanTypeVisible('firstPlanNew') && (
                         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                           <div className="text-xs text-gray-500 mb-1.5">(nuovi)</div>
-                          <div className="text-2xl font-bold text-gray-800">{month.firstPlanNew}</div>
+                          <div className="text-2xl font-bold text-gray-800">{month.counters.FirstCardNewCustomer ?? 0}</div>
                         </div>
                       )}
 
@@ -385,7 +369,7 @@ export function AnnualSummary() {
                         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                           <div className="text-xs text-gray-500 mb-1.5">(rinnovi)</div>
-                          <div className="text-2xl font-bold text-gray-800">{month.firstPlanRenewal}</div>
+                          <div className="text-2xl font-bold text-gray-800">{month.counters.FirstCardRenewed ?? 0}</div>
                         </div>
                       )}
 
@@ -394,7 +378,7 @@ export function AnnualSummary() {
                         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <div className="text-xs text-gray-600 mb-1">Modifiche</div>
                           <div className="text-xs text-gray-500 mb-1.5">(progressioni)</div>
-                          <div className="text-2xl font-bold text-gray-800">{month.planChanges}</div>
+                          <div className="text-2xl font-bold text-gray-800">{month.counters.UpdatesCard ?? 0}</div>
                         </div>
                       )}
 
@@ -403,7 +387,7 @@ export function AnnualSummary() {
                         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <div className="text-xs text-gray-600 mb-1">Allenamenti</div>
                           <div className="text-xs text-gray-500 mb-1.5">(PT)</div>
-                          <div className="text-2xl font-bold text-gray-800">{month.individualTraining}</div>
+                          <div className="text-2xl font-bold text-gray-800">{month.counters.IndividualTraining ?? 0}</div>
                         </div>
                       )}
 
@@ -412,10 +396,7 @@ export function AnnualSummary() {
                         <div className="text-xs text-gray-600 mb-1">Totale</div>
                         <div className="text-xs text-gray-500 mb-1.5">(mese)</div>
                         <div className="text-2xl font-bold text-gray-800">
-                          {(isPlanTypeVisible('firstPlanNew') ? month.firstPlanNew : 0) +
-                            (isPlanTypeVisible('firstPlanRenewal') ? month.firstPlanRenewal : 0) +
-                            (isPlanTypeVisible('planChanges') ? month.planChanges : 0) +
-                            (isPlanTypeVisible('individualTraining') ? month.individualTraining : 0)}
+                          {month.counters.TotalCards ?? 0}
                         </div>
                       </div>
                     </div>
@@ -731,4 +712,23 @@ export function AnnualSummary() {
       )}
     </div>
   );
+}
+
+function getMonthPlan(year: number = new Date().getFullYear(), monthlyCounters: MonthlyActivityCounters[] | undefined): { month: number, name: string, isFuture: boolean, counters?: MonthlyActivityCounters }[] {
+  const currentDateYear = new Date();
+  const currentDateMonth = new Date();
+  return [
+    { month: 1, name: 'Gennaio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 0 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 1) },
+    { month: 2, name: 'Febbraio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 1 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 2) },
+    { month: 3, name: 'Marzo', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 2 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 3) },
+    { month: 4, name: 'Aprile', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 3 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 4) },
+    { month: 5, name: 'Maggio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 4 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 5) },
+    { month: 6, name: 'Giugno', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 5 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 6) },
+    { month: 7, name: 'Luglio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 6 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 7) },
+    { month: 8, name: 'Agosto', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 7 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 8) },
+    { month: 9, name: 'Settembre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 8 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 9) },
+    { month: 10, name: 'Ottobre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 9 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 10) },
+    { month: 11, name: 'Novembre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 10 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 11) },
+    { month: 12, name: 'Dicembre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 11 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 12) },
+  ];
 }

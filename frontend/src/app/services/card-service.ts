@@ -3,10 +3,11 @@ import api from './api-service';
 
 const apiUrl = '/card';
 
-const cardMonthlyCounters = async (months: number[] | null) => {
+const cardMonthlyCounters = async (months: number[] | null, year: number) => {
     try {
         const params = new URLSearchParams();
         months?.forEach(month => params.append('months', month.toString()));
+        params.append('year', year.toString());
 
         const response = await api.get(
             `${apiUrl}/summary`,
@@ -57,4 +58,4 @@ const undoCard = async (id: number) => {
     }
 };
 
-export { rescheduleCard, newCard, undoCard, cardMonthlyCounters as getMonthlyCounters };
+export { rescheduleCard, newCard, undoCard, cardMonthlyCounters };

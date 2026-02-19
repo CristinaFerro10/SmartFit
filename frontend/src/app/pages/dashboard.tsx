@@ -7,7 +7,7 @@ import { getCountCustomersIST, getCustomersIST } from '../services/customer-serv
 import { CustomerOrderBy, CustomerWarning } from '../lib/filtermodel';
 import { Loading } from '../components/ui/loading';
 import { useAuthStore } from '../stores/authStore';
-import { getMonthlyCounters as cardMonthlyCounters } from '../services/card-service';
+import { cardMonthlyCounters } from '../services/card-service';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -62,7 +62,7 @@ export function Dashboard() {
   const fetchMonthlyCounters = async () => {
     try {
       const response = await cardMonthlyCounters([new Date().getMonth() + 1]); // Pass current month and flag to get monthly counters
-      setMonthlyCounters(response);
+      setMonthlyCounters(response ? response[0] : undefined);
     } catch (error) {
       console.error('Error fetching monthly counters:', error);
     }
@@ -123,7 +123,7 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
-      <div className="px-4 max-w-6xl mx-auto">
+      <div className="px-4 mx-auto">
         {/* Status Summary Banners - Primary Operational Status */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <button

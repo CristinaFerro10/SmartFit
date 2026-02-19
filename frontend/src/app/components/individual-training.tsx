@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, CheckCircle, Undo, ChevronDown, ChevronUp, Package, X } from 'lucide-react';
-import { Customer, IndividualTrainingActive, IndividualTrainingHistory, IndividualTrainingPackage, IndividualTrainingSession, IndividualTrainingSingleSession, PackageIntegration, SessionPackageType } from '../lib/types';
+import { Customer, IndividualTrainingActive, IndividualTrainingHistory, SessionPackageType } from '../lib/types';
 import { formatDate } from '../lib/utils';
 import { DateSelector } from './date-selector';
 import { activePackageGet, completeSession, deleteLastSession, historyPackage, newPackage, sessionPackageTypeGet, upgradePackage } from '../services/pt-service';
@@ -11,10 +11,30 @@ interface IndividualTrainingProps {
 }
 
 export function IndividualTraining({ client }: IndividualTrainingProps) {
+  const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
+  const [showIntegrationMenu, setShowIntegrationMenu] = useState(false);
+  const [showPackageHistory, setShowPackageHistory] = useState(false);
+  const [showIntegrationsHistory, setShowIntegrationsHistory] = useState(false);
+  const [showSessionHistory, setShowSessionHistory] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [loading, setLoading] = useState(false);
+  const [hasActivePackage, setHasActivePackage] = useState(false);
+  const [activePT, setActivePT] = useState<IndividualTrainingActive | undefined>();
+  const [packageHistory, setPackageHistory] = useState<IndividualTrainingHistory | undefined>();
+  const [purchaseType, setPurchaseType] = useState<SessionPackageType[] | null>(null);
+  const [pendingPurchaseType, setPendingPurchaseType] = useState<SessionPackageType | null>(null);
+  const [pendingIntegration, setPendingIntegration] = useState<SessionPackageType | null>(null);
+  const availableSessions = (activePT?.RemainingSession ?? 0) > 0;
+
   useEffect(() => {
     fetchSessionPTType();
     fetchPT();
   }, []);
+
+  useEffect(() => {
+    // TODO: mettere un first loading??
+    fetchHistoryPackage();
+  }, [activePT]);
 
   const fetchSessionPTType = async () => {
     try {
@@ -37,24 +57,6 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
       setLoading(false);
     }
   };
-
-  const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
-  const [showIntegrationMenu, setShowIntegrationMenu] = useState(false);
-  const [showPackageHistory, setShowPackageHistory] = useState(false);
-  const [showIntegrationsHistory, setShowIntegrationsHistory] = useState(false);
-  const [showSessionHistory, setShowSessionHistory] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [loading, setLoading] = useState(false);
-  const [hasActivePackage, setHasActivePackage] = useState(false);
-  const [activePT, setActivePT] = useState<IndividualTrainingActive | undefined>();
-  const [packageHistory, setPackageHistory] = useState<IndividualTrainingHistory | undefined>();
-  const [purchaseType, setPurchaseType] = useState<SessionPackageType[] | null>(null);
-
-  // Confirmation states
-  const [pendingPurchaseType, setPendingPurchaseType] = useState<SessionPackageType | null>(null);
-  const [pendingIntegration, setPendingIntegration] = useState<SessionPackageType | null>(null);
-
-  const availableSessions = (activePT?.RemainingSession ?? 0) > 0;
 
   const handleConfirmPurchase = async () => {
     if (!pendingPurchaseType) return;
@@ -115,11 +117,6 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
       console.error('Error completing session:', error);
     }
   };
-
-  useEffect(() => {
-    // TODO: mettere un first loading
-    fetchHistoryPackage();
-  }, [activePT]);
 
   const fetchHistoryPackage = async () => {
     try {
@@ -459,7 +456,6 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
                         </button>
                       ))
                     }
-                    {/* <div className="border-t border-gray-200 my-1"></div> */}
                   </div>
                   <button
                     onClick={() => setShowPurchaseMenu(false)}
@@ -502,17 +498,6 @@ export function IndividualTraining({ client }: IndividualTrainingProps) {
                       Completato
                     </span>
                   </div>
-
-                  {/* {pkg.integrations.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-300">
-                      <p className="text-xs font-medium text-gray-700 mb-1">Integrazioni:</p>
-                      {pkg.integrations.map((int, index) => (
-                        <p key={int.id} className="text-xs text-gray-600">
-                          • {int.description} ({formatDate(int.date)})
-                        </p>
-                      ))}
-                    </div>
-                  )} */}
                 </div>
               ))}
             </div>

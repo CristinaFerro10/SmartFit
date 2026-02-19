@@ -14,3 +14,7 @@ class CustomerDashboardISTFilter(BaseModel):
 class CustomerDashboardISTFilterPaginated(PaginationParams, CustomerDashboardISTFilter):
     WarningType: Optional[CustomerWarning] = None
     OrderBy: Optional[CustomerOrderBy] = None
+
+class MonthCounterFilter(BaseModel):
+    months: Optional[list[int]] = None
+    year: int
