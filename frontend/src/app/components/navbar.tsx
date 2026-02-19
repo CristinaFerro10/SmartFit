@@ -11,13 +11,13 @@ const Navbar: React.FC = () => {
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
+        navigate('/');
     };
 
     useEffect(() => {
         if (isAuthenticated && !isTokenValid()) {
             logout();
-            navigate('/login');
+            navigate('/');
         }
     }, [isAuthenticated, isTokenValid, logout, navigate]);
 

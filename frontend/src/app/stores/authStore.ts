@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthStore>()(
 
             getDefaultRoute: () => {
                 const user = get().getUser();
-                if (!user) return '/login';
+                if (!user) return '/';
 
                 return user.role.includes('SGR') ? '/dashboard' : '/trainer-dashboard';
             },

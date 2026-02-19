@@ -27,7 +27,7 @@ api.interceptors.response.use(
             logout();
 
             // Redirect a login
-            window.location.href = '/login';
+            window.location.href = '/';
         }
 
         return Promise.reject(error);
