@@ -30,8 +30,7 @@ async def card_summary(user: user_dependency, params: MonthCounterFilter = Query
         .eq('TrainingOperatorId', user.get('id'))
 
     if params.months:
-        for month in params.months:
-            query.eq('Month', month)
+        query.in_('Month', params.months)
 
     result = query.execute()
 

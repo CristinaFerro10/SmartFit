@@ -1,30 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, Trash2, Filter, X } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Filter, X } from 'lucide-react';
 import { cardMonthlyCounters } from '../services/card-service';
-import { MonthlyActivityCounters } from '../lib/utils';
-
-// Mock data for current year (2026)
-// In a real app, this would come from a database/API
-const MOCK_YEAR_DATA = {
-  year: 2024,
-  months: [
-    { month: 0, firstPlanNew: 5, firstPlanRenewal: 8, planChanges: 15, individualTraining: 12, firstPlanNewMDS: 2, firstPlanRenewalMDS: 3, planChangesMDS: 5, individualTrainingMDS: 4 },
-    { month: 1, firstPlanNew: 6, firstPlanRenewal: 10, planChanges: 18, individualTraining: 15, firstPlanNewMDS: 2, firstPlanRenewalMDS: 4, planChangesMDS: 6, individualTrainingMDS: 5 },
-    { month: 2, firstPlanNew: 4, firstPlanRenewal: 7, planChanges: 12, individualTraining: 9, firstPlanNewMDS: 1, firstPlanRenewalMDS: 2, planChangesMDS: 4, individualTrainingMDS: 3 },
-    { month: 3, firstPlanNew: 7, firstPlanRenewal: 9, planChanges: 20, individualTraining: 14, firstPlanNewMDS: 3, firstPlanRenewalMDS: 3, planChangesMDS: 7, individualTrainingMDS: 5 },
-    { month: 4, firstPlanNew: 5, firstPlanRenewal: 11, planChanges: 16, individualTraining: 11, firstPlanNewMDS: 2, firstPlanRenewalMDS: 4, planChangesMDS: 5, individualTrainingMDS: 4 },
-    { month: 5, firstPlanNew: 6, firstPlanRenewal: 8, planChanges: 14, individualTraining: 10, firstPlanNewMDS: 2, firstPlanRenewalMDS: 3, planChangesMDS: 4, individualTrainingMDS: 3 },
-    { month: 6, firstPlanNew: 4, firstPlanRenewal: 6, planChanges: 10, individualTraining: 7, firstPlanNewMDS: 1, firstPlanRenewalMDS: 2, planChangesMDS: 3, individualTrainingMDS: 2 },
-    { month: 7, firstPlanNew: 3, firstPlanRenewal: 5, planChanges: 8, individualTraining: 6, firstPlanNewMDS: 1, firstPlanRenewalMDS: 1, planChangesMDS: 2, individualTrainingMDS: 2 },
-    { month: 8, firstPlanNew: 0, firstPlanRenewal: 0, planChanges: 0, individualTraining: 0, firstPlanNewMDS: 0, firstPlanRenewalMDS: 0, planChangesMDS: 0, individualTrainingMDS: 0 }, // Future month
-    { month: 9, firstPlanNew: 0, firstPlanRenewal: 0, planChanges: 0, individualTraining: 0, firstPlanNewMDS: 0, firstPlanRenewalMDS: 0, planChangesMDS: 0, individualTrainingMDS: 0 }, // Future month
-    { month: 10, firstPlanNew: 0, firstPlanRenewal: 0, planChanges: 0, individualTraining: 0, firstPlanNewMDS: 0, firstPlanRenewalMDS: 0, planChangesMDS: 0, individualTrainingMDS: 0 }, // Future month
-    { month: 11, firstPlanNew: 0, firstPlanRenewal: 0, planChanges: 0, individualTraining: 0, firstPlanNewMDS: 0, firstPlanRenewalMDS: 0, planChangesMDS: 0, individualTrainingMDS: 0 }, // Future month
-  ]
-};
-
-const CURRENT_YEAR = new Date().getFullYear();
+import { MonthlyActivityCounters, MonthPlan } from '../lib/utils';
 
 type PlanType = 'firstPlanNew' | 'firstPlanRenewal' | 'planChanges' | 'individualTraining';
 type ClientTypeFilter = 'all' | 'standard' | 'mds';
@@ -43,40 +21,46 @@ const PLAN_TYPE_LABELS: Record<PlanType, string> = {
 
 export function AnnualSummary() {
   const navigate = useNavigate();
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
-  // Filter mode states
-  const [monthFilterMode, setMonthFilterMode] = useState<'all' | 'custom'>('all');
-  const [planTypeFilterMode, setPlanTypeFilterMode] = useState<'all' | 'custom'>('all');
-
   // Filters - Empty arrays mean "all" (default state)
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([]); // Empty = all months
-  const [selectedPlanTypes, setSelectedPlanTypes] = useState<PlanType[]>([]); // Empty = all types
+  const [selectedMonths, setSelectedMonths] = useState<number[] | null>(null); // Empty = all months
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()); // Default to current year
+  const [selectedPlanTypes, setSelectedPlanTypes] = useState<PlanType[] | null>(null); // Empty = all types
   const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>('all');
   const [monthlyCounters, setMonthlyCounters] = useState<MonthlyActivityCounters[] | undefined>(undefined);
-  const [monthPlan, setMonthPlan] = useState<{ month: number, name: string, isFuture: boolean, counters?: MonthlyActivityCounters }[] | undefined>(undefined);
+  const [monthPlan, setMonthPlan] = useState<MonthPlan[] | undefined>(undefined);
 
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth(); // 0-based (0 = January)
-
-  // Check if we have previous year data that hasn't been reset
-  const hasPreviousYearData = MOCK_YEAR_DATA.year < currentYear;
+  const currentMonth = new Date().getMonth();
 
   // Helpers for "all" state
-  const isAllMonthsSelected = selectedMonths.length === 0;
-  const isAllPlanTypesSelected = selectedPlanTypes.length === 0;
+  const isAllMonthsSelected = !selectedMonths || selectedMonths.length === 0;
+  const isAllPlanTypesSelected = !selectedPlanTypes || selectedPlanTypes.length === 0;
+
+  const getMonthPlan = (year: number = new Date().getFullYear(), monthlyCounters: MonthlyActivityCounters[] | undefined): MonthPlan[] => {
+    const currentDateYear = new Date();
+    const currentDateMonth = new Date();
+    const monthToShow: MonthPlan[] = [];
+    MONTH_NAMES.forEach((e, index) => {
+      if (!selectedMonths || selectedMonths.includes(index + 1)) {
+        monthToShow.push(
+          { month: index + 1, name: e, isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && index > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === index + 1) }
+        );
+      }
+    });
+    return monthToShow;
+  }
 
   useEffect(() => {
     fetchMonthlyCounters();
-  }, []);
+  }, [selectedMonths, clientTypeFilter, currentMonth, isAllMonthsSelected, selectedPlanTypes, isAllPlanTypesSelected, selectedYear]);
 
   const fetchMonthlyCounters = async () => {
     try {
       // TODO cambiare con filtro impostato
-      const response = await cardMonthlyCounters(null, new Date().getFullYear()); // Pass current month and flag to get monthly counters
+      const response = await cardMonthlyCounters(selectedMonths, selectedYear); // Pass current month and flag to get monthly counters
       setMonthlyCounters(response);
-      setMonthPlan(getMonthPlan(new Date().getFullYear(), response as MonthlyActivityCounters[] | undefined));
+      setMonthPlan(getMonthPlan(selectedYear, response as MonthlyActivityCounters[] | undefined));
     } catch (error) {
       console.error('Error fetching monthly counters:', error);
     }
@@ -85,10 +69,10 @@ export function AnnualSummary() {
   // Toggle month selection
   const toggleMonth = (monthIndex: number) => {
     setSelectedMonths(prev => {
-      if (prev.includes(monthIndex)) {
+      if (prev?.includes(monthIndex)) {
         return prev.filter(m => m !== monthIndex);
       } else {
-        return [...prev, monthIndex];
+        return [...(prev || []), monthIndex];
       }
     });
   };
@@ -96,88 +80,17 @@ export function AnnualSummary() {
   // Toggle plan type selection
   const togglePlanType = (planType: PlanType) => {
     setSelectedPlanTypes(prev => {
-      if (prev.includes(planType)) {
+      if (prev?.includes(planType)) {
         return prev.filter(p => p !== planType);
       } else {
-        return [...prev, planType];
+        return [...(prev || []), planType];
       }
     });
   };
-
-  // Process data based on filters
-  const processedData = useMemo(() => {
-    let months = MOCK_YEAR_DATA.months.map((m) => {
-      const date = new Date(MOCK_YEAR_DATA.year, m.month, 1);
-      const monthName = new Intl.DateTimeFormat('it-IT', { month: 'long' }).format(date);
-
-      // Apply client type filter
-      let firstPlanNew = m.firstPlanNew;
-      let firstPlanRenewal = m.firstPlanRenewal;
-      let planChanges = m.planChanges;
-      let individualTraining = m.individualTraining;
-
-      if (clientTypeFilter === 'mds') {
-        firstPlanNew = m.firstPlanNewMDS;
-        firstPlanRenewal = m.firstPlanRenewalMDS;
-        planChanges = m.planChangesMDS;
-        individualTraining = m.individualTrainingMDS;
-      } else if (clientTypeFilter === 'standard') {
-        firstPlanNew = m.firstPlanNew - m.firstPlanNewMDS;
-        firstPlanRenewal = m.firstPlanRenewal - m.firstPlanRenewalMDS;
-        planChanges = m.planChanges - m.planChangesMDS;
-        individualTraining = m.individualTraining - m.individualTrainingMDS;
-      }
-
-      const total = firstPlanNew + firstPlanRenewal + planChanges + individualTraining;
-
-      return {
-        month: m.month,
-        monthName,
-        firstPlanNew,
-        firstPlanRenewal,
-        planChanges,
-        individualTraining,
-        total,
-        isFuture: m.month > currentMonth
-      };
-    });
-
-    // Apply month filter
-    if (!isAllMonthsSelected) {
-      months = months.filter(m => selectedMonths.includes(m.month));
-    }
-
-    return months;
-  }, [selectedMonths, clientTypeFilter, currentMonth, isAllMonthsSelected]);
-
-  // Calculate totals with plan type filter applied
-  const totals = useMemo(() => {
-    return processedData.reduce((acc, month) => {
-      // Apply plan type filter
-      const firstPlanNew = isAllPlanTypesSelected || selectedPlanTypes.includes('firstPlanNew') ? month.firstPlanNew : 0;
-      const firstPlanRenewal = isAllPlanTypesSelected || selectedPlanTypes.includes('firstPlanRenewal') ? month.firstPlanRenewal : 0;
-      const planChanges = isAllPlanTypesSelected || selectedPlanTypes.includes('planChanges') ? month.planChanges : 0;
-      const individualTraining = isAllPlanTypesSelected || selectedPlanTypes.includes('individualTraining') ? month.individualTraining : 0;
-
-      return {
-        firstPlanNew: acc.firstPlanNew + firstPlanNew,
-        firstPlanRenewal: acc.firstPlanRenewal + firstPlanRenewal,
-        planChanges: acc.planChanges + planChanges,
-        individualTraining: acc.individualTraining + individualTraining,
-        total: acc.total + firstPlanNew + firstPlanRenewal + planChanges + individualTraining
-      };
-    }, { firstPlanNew: 0, firstPlanRenewal: 0, planChanges: 0, individualTraining: 0, total: 0 });
-  }, [processedData, selectedPlanTypes, isAllPlanTypesSelected]);
 
   // Filter visibility for individual cards
   const isPlanTypeVisible = (type: PlanType) => {
-    return isAllPlanTypesSelected || selectedPlanTypes.includes(type);
-  };
-
-  const handleReset = () => {
-    console.log('Resetting annual data...');
-    setShowResetConfirm(false);
-    alert('Dati annuali azzerati con successo');
+    return isAllPlanTypesSelected || selectedPlanTypes?.includes(type);
   };
 
   const activeFiltersCount = [
@@ -187,8 +100,6 @@ export function AnnualSummary() {
   ].reduce((a, b) => a + b, 0);
 
   const clearAllFilters = () => {
-    setMonthFilterMode('all');
-    setPlanTypeFilterMode('all');
     setSelectedMonths([]);
     setSelectedPlanTypes([]);
     setClientTypeFilter('all');
@@ -210,7 +121,7 @@ export function AnnualSummary() {
           <div className="flex items-center gap-3">
             <TrendingUp className="w-7 h-7 text-blue-600" />
             <div>
-              <h1 className="text-2xl font-bold">Riepilogo Annuale {MOCK_YEAR_DATA.year}</h1>
+              <h1 className="text-2xl font-bold">Riepilogo Annuale {selectedYear}</h1>
               <p className="text-sm text-gray-600">Andamento mensile delle schede allenamento</p>
             </div>
           </div>
@@ -223,9 +134,9 @@ export function AnnualSummary() {
           <h2 className="text-lg font-semibold text-gray-900">
             {isAllMonthsSelected
               ? 'Anno completo'
-              : selectedMonths.length === 1
+              : selectedMonths?.length === 1
                 ? MONTH_NAMES[selectedMonths[0]]
-                : `${selectedMonths.length} mesi selezionati`}
+                : `${selectedMonths?.length} mesi selezionati`}
             {clientTypeFilter !== 'all' && ` - Clienti ${clientTypeFilter === 'mds' ? 'MDS' : 'Standard'}`}
           </h2>
 
@@ -251,12 +162,12 @@ export function AnnualSummary() {
                 <span className="text-sm text-blue-800 font-medium">Filtri attivi:</span>
                 {!isAllMonthsSelected && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs">
-                    {selectedMonths.length === 1
+                    {selectedMonths?.length === 1
                       ? MONTH_NAMES[selectedMonths[0]]
-                      : `${selectedMonths.length} mesi`}
+                      : `${selectedMonths?.length} mesi`}
                   </span>
                 )}
-                {!isAllPlanTypesSelected && selectedPlanTypes.map(type => (
+                {!isAllPlanTypesSelected && selectedPlanTypes?.map(type => (
                   <span key={type} className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs">
                     {PLAN_TYPE_LABELS[type]}
                   </span>
@@ -281,7 +192,7 @@ export function AnnualSummary() {
         <div className="mb-6 bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6">
           <h2 className="font-semibold text-lg text-blue-900 mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            Totali {isAllMonthsSelected ? `Anno ${MOCK_YEAR_DATA.year}` : selectedMonths.length === 1 ? MONTH_NAMES[selectedMonths[0]] : `${selectedMonths.length} mesi`}
+            Totali {isAllMonthsSelected ? `Anno ${selectedYear}` : selectedMonths?.length === 1 ? MONTH_NAMES[selectedMonths[0]] : `${selectedMonths?.length} mesi`}
           </h2>
 
           {/* Single row layout - matching Monthly Breakdown structure */}
@@ -291,7 +202,7 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                 <div className="text-xs text-gray-500 mb-1.5">(nuovi)</div>
-                <div className="text-3xl font-bold text-blue-600">{totals.firstPlanNew}</div>
+                <div className="text-3xl font-bold text-blue-600">0</div>
               </div>
             )}
 
@@ -300,7 +211,7 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                 <div className="text-xs text-gray-500 mb-1.5">(rinnovi)</div>
-                <div className="text-3xl font-bold text-blue-600">{totals.firstPlanRenewal}</div>
+                <div className="text-3xl font-bold text-blue-600">0</div>
               </div>
             )}
 
@@ -309,7 +220,7 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Modifiche</div>
                 <div className="text-xs text-gray-500 mb-1.5">(progressioni)</div>
-                <div className="text-3xl font-bold text-blue-600">{totals.planChanges}</div>
+                <div className="text-3xl font-bold text-blue-600">0</div>
               </div>
             )}
 
@@ -318,15 +229,15 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Allenamenti</div>
                 <div className="text-xs text-gray-500 mb-1.5">(PT)</div>
-                <div className="text-3xl font-bold text-blue-600">{totals.individualTraining}</div>
+                <div className="text-3xl font-bold text-blue-600">0</div>
               </div>
             )}
 
             {/* Totale (anno/mese) */}
             <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
               <div className="text-xs text-gray-600 mb-1">Totale</div>
-              <div className="text-xs text-gray-500 mb-1.5">({isAllMonthsSelected ? 'anno' : selectedMonths.length === 1 ? 'mese' : 'mesi'})</div>
-              <div className="text-3xl font-bold text-blue-600">{totals.total}</div>
+              <div className="text-xs text-gray-500 mb-1.5">({isAllMonthsSelected ? 'anno' : selectedMonths?.length === 1 ? 'mese' : 'mesi'})</div>
+              <div className="text-3xl font-bold text-blue-600">0</div>
             </div>
           </div>
         </div>
@@ -405,7 +316,7 @@ export function AnnualSummary() {
                   )}
 
                   {/* Separator between months (except last) */}
-                  {index < processedData.length - 1 && (
+                  {index < monthPlan.length - 1 && (
                     <div className="border-b border-gray-100 mt-3"></div>
                   )}
                 </div>
@@ -454,75 +365,30 @@ export function AnnualSummary() {
                     <input
                       type="radio"
                       name="monthFilter"
-                      checked={monthFilterMode === 'all'}
+                      checked={!selectedMonths}
                       onChange={() => {
-                        setMonthFilterMode('all');
-                        setSelectedMonths([]);
+                        setSelectedMonths(null);
                       }}
                       className="w-4 h-4 text-blue-600"
                     />
                     <span className="text-sm font-medium">Tutti i mesi</span>
                   </label>
 
-                  <div>
-                    <label className="flex items-center gap-3 cursor-pointer mb-3">
-                      <input
-                        type="radio"
-                        name="monthFilter"
-                        checked={monthFilterMode === 'custom'}
-                        onChange={() => setMonthFilterMode('custom')}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <span className="text-sm font-medium">Seleziona mesi</span>
-                    </label>
-
-                    {/* Months Grid - 3 columns x 4 rows */}
-                    <div className="ml-7 grid grid-cols-3 gap-x-4 gap-y-2">
-                      {[0, 1, 2, 3].map((monthIndex) => (
-                        <label key={monthIndex} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={selectedMonths.includes(monthIndex)}
-                            onChange={() => toggleMonth(monthIndex)}
-                            disabled={monthFilterMode === 'all'}
-                            className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                          <span className={`text-sm ${monthFilterMode === 'all' ? 'text-gray-400' : 'text-gray-700'}`}>
-                            {MONTH_NAMES[monthIndex]}
-                          </span>
-                        </label>
-                      ))}
-
-                      {[4, 5, 6, 7].map((monthIndex) => (
-                        <label key={monthIndex} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={selectedMonths.includes(monthIndex)}
-                            onChange={() => toggleMonth(monthIndex)}
-                            disabled={monthFilterMode === 'all'}
-                            className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                          <span className={`text-sm ${monthFilterMode === 'all' ? 'text-gray-400' : 'text-gray-700'}`}>
-                            {MONTH_NAMES[monthIndex]}
-                          </span>
-                        </label>
-                      ))}
-
-                      {[8, 9, 10, 11].map((monthIndex) => (
-                        <label key={monthIndex} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={selectedMonths.includes(monthIndex)}
-                            onChange={() => toggleMonth(monthIndex)}
-                            disabled={monthFilterMode === 'all'}
-                            className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                          <span className={`text-sm ${monthFilterMode === 'all' ? 'text-gray-400' : 'text-gray-700'}`}>
-                            {MONTH_NAMES[monthIndex]}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                  {/* Months Grid - 3 columns x 4 rows */}
+                  <div className="ml-7 grid grid-cols-3 gap-x-4 gap-y-2">
+                    {MONTH_NAMES.map((monthName, monthIndex) => (
+                      <label key={monthIndex} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedMonths !== null && selectedMonths?.includes(monthIndex + 1)}
+                          onChange={() => toggleMonth(monthIndex + 1)}
+                          className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <span className={'text-sm text-gray-700'}>
+                          {monthName}
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -539,10 +405,9 @@ export function AnnualSummary() {
                     <input
                       type="radio"
                       name="planTypeFilter"
-                      checked={planTypeFilterMode === 'all'}
+                      checked={!selectedPlanTypes}
                       onChange={() => {
-                        setPlanTypeFilterMode('all');
-                        setSelectedPlanTypes([]);
+                        setSelectedPlanTypes(null);
                       }}
                       className="w-4 h-4 text-blue-600"
                     />
@@ -550,64 +415,49 @@ export function AnnualSummary() {
                   </label>
 
                   <div>
-                    <label className="flex items-center gap-3 cursor-pointer mb-3">
-                      <input
-                        type="radio"
-                        name="planTypeFilter"
-                        checked={planTypeFilterMode === 'custom'}
-                        onChange={() => setPlanTypeFilterMode('custom')}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <span className="text-sm font-medium">Seleziona tipi</span>
-                    </label>
-
                     {/* Plan Types */}
                     <div className="ml-7 space-y-2">
                       <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
                         <input
                           type="checkbox"
-                          checked={selectedPlanTypes.includes('firstPlanNew')}
+                          checked={selectedPlanTypes?.includes('firstPlanNew')}
                           onChange={() => togglePlanType('firstPlanNew')}
-                          disabled={planTypeFilterMode === 'all'}
                           className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         />
-                        <span className={`text-sm ${planTypeFilterMode === 'all' ? 'text-gray-400' : 'text-gray-700'}`}>
+                        <span className={'text-sm text-gray-700'}>
                           Prima scheda (nuovo cliente)
                         </span>
                       </label>
                       <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
                         <input
                           type="checkbox"
-                          checked={selectedPlanTypes.includes('firstPlanRenewal')}
+                          checked={selectedPlanTypes?.includes('firstPlanRenewal')}
                           onChange={() => togglePlanType('firstPlanRenewal')}
-                          disabled={planTypeFilterMode === 'all'}
                           className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         />
-                        <span className={`text-sm ${planTypeFilterMode === 'all' ? 'text-gray-400' : 'text-gray-700'}`}>
+                        <span className={'text-sm text-gray-700'}>
                           Prima scheda (rinnovo)
                         </span>
                       </label>
                       <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
                         <input
                           type="checkbox"
-                          checked={selectedPlanTypes.includes('planChanges')}
+                          checked={selectedPlanTypes?.includes('planChanges')}
                           onChange={() => togglePlanType('planChanges')}
-                          disabled={planTypeFilterMode === 'all'}
                           className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         />
-                        <span className={`text-sm ${planTypeFilterMode === 'all' ? 'text-gray-400' : 'text-gray-700'}`}>
+                        <span className={'text-sm text-gray-700'}>
                           Modifica scheda (progressioni)
                         </span>
                       </label>
                       <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors">
                         <input
                           type="checkbox"
-                          checked={selectedPlanTypes.includes('individualTraining')}
+                          checked={selectedPlanTypes?.includes('individualTraining')}
                           onChange={() => togglePlanType('individualTraining')}
-                          disabled={planTypeFilterMode === 'all'}
                           className="w-4 h-4 text-blue-600 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         />
-                        <span className={`text-sm ${planTypeFilterMode === 'all' ? 'text-gray-400' : 'text-gray-700'}`}>
+                        <span className={'text-sm text-gray-700'}>
                           Allenamento individuale (PT)
                         </span>
                       </label>
@@ -673,62 +523,8 @@ export function AnnualSummary() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Reset Confirmation Modal */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="text-red-600 text-3xl">⚠️</div>
-              <div>
-                <h3 className="font-semibold text-lg text-gray-900 mb-2">Conferma azzeramento dati annuali</h3>
-                <p className="text-sm text-gray-600">
-                  Questa azione azzererà <strong>tutti i dati dell'anno {MOCK_YEAR_DATA.year}</strong> in modo permanente.
-                  I contatori verranno riportati a zero e non sarà possibile recuperare i dati.
-                </p>
-                <p className="text-sm text-gray-600 mt-2">
-                  Sei sicuro di voler procedere?
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleReset}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-              >
-                Azzera dati
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
-}
-
-function getMonthPlan(year: number = new Date().getFullYear(), monthlyCounters: MonthlyActivityCounters[] | undefined): { month: number, name: string, isFuture: boolean, counters?: MonthlyActivityCounters }[] {
-  const currentDateYear = new Date();
-  const currentDateMonth = new Date();
-  return [
-    { month: 1, name: 'Gennaio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 0 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 1) },
-    { month: 2, name: 'Febbraio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 1 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 2) },
-    { month: 3, name: 'Marzo', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 2 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 3) },
-    { month: 4, name: 'Aprile', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 3 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 4) },
-    { month: 5, name: 'Maggio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 4 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 5) },
-    { month: 6, name: 'Giugno', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 5 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 6) },
-    { month: 7, name: 'Luglio', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 6 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 7) },
-    { month: 8, name: 'Agosto', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 7 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 8) },
-    { month: 9, name: 'Settembre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 8 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 9) },
-    { month: 10, name: 'Ottobre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 9 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 10) },
-    { month: 11, name: 'Novembre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 10 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 11) },
-    { month: 12, name: 'Dicembre', isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && 11 > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === 12) },
-  ];
 }

@@ -61,7 +61,7 @@ export function Dashboard() {
 
   const fetchMonthlyCounters = async () => {
     try {
-      const response = await cardMonthlyCounters([new Date().getMonth() + 1]); // Pass current month and flag to get monthly counters
+      const response = await cardMonthlyCounters([new Date().getMonth() + 1], new Date().getFullYear()); // Pass current month and flag to get monthly counters
       setMonthlyCounters(response ? response[0] : undefined);
     } catch (error) {
       console.error('Error fetching monthly counters:', error);
