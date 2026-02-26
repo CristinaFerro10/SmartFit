@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Filter, X } from 'lucide-react';
-import { cardMonthlyCounters } from '../services/card-service';
+import { cardMonthlyCounters, totalCardMonthlyCounters } from '../services/card-service';
 import { Loading } from '../components/ui/loading';
 import { MonthlyActivityCounters, MonthPlan } from '../lib/utils';
 
@@ -30,6 +30,7 @@ export function AnnualSummary() {
   const [selectedPlanTypes, setSelectedPlanTypes] = useState<PlanType[]>([]); // Empty = all types
   const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>('all');
   const [monthPlan, setMonthPlan] = useState<MonthPlan[] | undefined>(undefined);
+  const [responseTotal, setResponseTotal] = useState<MonthlyActivityCounters | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
 
   const currentMonth = new Date().getMonth();
@@ -58,7 +59,7 @@ export function AnnualSummary() {
   const fetchMonthlyCounters = async () => {
     setLoading(true);
     try {
-      const response = await cardMonthlyCounters({
+      const params = {
         months: selectedMonths,
         year: selectedYear,
         isMDSSubscription: clientTypeFilter ? clientTypeFilter === 'mds' : null,
@@ -66,9 +67,11 @@ export function AnnualSummary() {
         includeRenewed: selectedPlanTypes ? selectedPlanTypes.includes('firstPlanRenewal') : null,
         includeUpdates: selectedPlanTypes ? selectedPlanTypes.includes('planChanges') : null,
         includePT: selectedPlanTypes ? selectedPlanTypes.includes('individualTraining') : null,
-      });
+      };
+      const response = await cardMonthlyCounters(params);
       setMonthPlan(getMonthPlan(selectedYear, response as MonthlyActivityCounters[] | undefined));
-      // TODO: get totale
+      const responseTotal = await totalCardMonthlyCounters(params);
+      setResponseTotal(responseTotal?.length > 0 ? responseTotal[0] : undefined);
     } catch (error) {
       console.error('Error fetching monthly counters:', error);
     } finally {
@@ -116,7 +119,6 @@ export function AnnualSummary() {
     setClientTypeFilter('all');
   };
 
-  // TODO: loading
   return (loading ? (
     <Loading message="Caricamento dati..." />
   ) : (
@@ -216,7 +218,7 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                 <div className="text-xs text-gray-500 mb-1.5">(nuovi)</div>
-                <div className="text-3xl font-bold text-blue-600">0</div>
+                <div className="text-3xl font-bold text-blue-600">{responseTotal?.FirstCardNewCustomer || 0}</div>
               </div>
             )}
 
@@ -225,7 +227,7 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Prime schede</div>
                 <div className="text-xs text-gray-500 mb-1.5">(rinnovi)</div>
-                <div className="text-3xl font-bold text-blue-600">0</div>
+                <div className="text-3xl font-bold text-blue-600">{responseTotal?.FirstCardRenewed || 0}</div>
               </div>
             )}
 
@@ -234,7 +236,7 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Modifiche</div>
                 <div className="text-xs text-gray-500 mb-1.5">(progressioni)</div>
-                <div className="text-3xl font-bold text-blue-600">0</div>
+                <div className="text-3xl font-bold text-blue-600">{responseTotal?.UpdatesCard || 0}</div>
               </div>
             )}
 
@@ -243,7 +245,7 @@ export function AnnualSummary() {
               <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
                 <div className="text-xs text-gray-600 mb-1">Allenamenti</div>
                 <div className="text-xs text-gray-500 mb-1.5">(PT)</div>
-                <div className="text-3xl font-bold text-blue-600">0</div>
+                <div className="text-3xl font-bold text-blue-600">{responseTotal?.TotalSession || 0}</div>
               </div>
             )}
 
@@ -251,7 +253,7 @@ export function AnnualSummary() {
             <div className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm">
               <div className="text-xs text-gray-600 mb-1">Totale</div>
               <div className="text-xs text-gray-500 mb-1.5">({isAllMonthsSelected ? 'anno' : selectedMonths?.length === 1 ? 'mese' : 'mesi'})</div>
-              <div className="text-3xl font-bold text-blue-600">0</div>
+              <div className="text-3xl font-bold text-blue-600">{responseTotal?.TotalCards || 0}</div>
             </div>
           </div>
         </div>

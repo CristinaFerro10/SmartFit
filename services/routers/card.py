@@ -27,7 +27,10 @@ async def card_summary(user: user_dependency, params: MonthCounterFilter = Query
 
 @router.get('/summary/total', status_code=status.HTTP_200_OK)
 async def card_summary_total(user: user_dependency, params: MonthCounterFilter = Query()):
-    return []
+    try:
+        return await get_query_cards_count(user, 'get_total_card_summary', params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
 async def create_card(user: user_dependency,card: CardRequest):

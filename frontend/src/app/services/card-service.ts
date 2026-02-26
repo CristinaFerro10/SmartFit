@@ -6,25 +6,7 @@ const apiUrl = '/card';
 
 const cardMonthlyCounters = async (params: CardMonthlyParams) => {
     try {
-        const queryParams = new URLSearchParams();
-        params.months?.forEach(month => queryParams.append('months', month.toString()));
-        queryParams.append('year', params.year.toString());
-        if (params.isMDSSubscription) {
-            queryParams.append('isMDSSubscription', params.isMDSSubscription.toString());
-        }
-        if (params.includeNew) {
-            queryParams.append('includeNew', params.includeNew.toString());
-        }
-        if (params.includeRenewed) {
-            queryParams.append('includeRenewed', params.includeRenewed.toString());
-        }
-        if (params.includeUpdates) {
-            queryParams.append('includeUpdates', params.includeUpdates.toString());
-        }
-        if (params.includePT) {
-            queryParams.append('includePT', params.includePT.toString());
-        }
-
+        const queryParams = getCardsQueryParams(params);
         const response = await api.get(
             `${apiUrl}/summary`,
             { params: queryParams }
@@ -36,6 +18,19 @@ const cardMonthlyCounters = async (params: CardMonthlyParams) => {
     }
 };
 
+const totalCardMonthlyCounters = async (params: CardMonthlyParams) => {
+    try {
+        const queryParams = getCardsQueryParams(params);
+        const response = await api.get(
+            `${apiUrl}/summary/total`,
+            { params: queryParams }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching monthly counters:', error);
+        throw error;
+    }
+};
 
 const newCard = async (params: CardRequest) => {
     try {
@@ -74,4 +69,26 @@ const undoCard = async (id: number) => {
     }
 };
 
-export { rescheduleCard, newCard, undoCard, cardMonthlyCounters };
+export { rescheduleCard, newCard, undoCard, cardMonthlyCounters, totalCardMonthlyCounters };
+
+function getCardsQueryParams(params: CardMonthlyParams) {
+    const queryParams = new URLSearchParams();
+    params.months?.forEach(month => queryParams.append('months', month.toString()));
+    queryParams.append('year', params.year.toString());
+    if (params.isMDSSubscription) {
+        queryParams.append('isMDSSubscription', params.isMDSSubscription.toString());
+    }
+    if (params.includeNew) {
+        queryParams.append('includeNew', params.includeNew.toString());
+    }
+    if (params.includeRenewed) {
+        queryParams.append('includeRenewed', params.includeRenewed.toString());
+    }
+    if (params.includeUpdates) {
+        queryParams.append('includeUpdates', params.includeUpdates.toString());
+    }
+    if (params.includePT) {
+        queryParams.append('includePT', params.includePT.toString());
+    }
+    return queryParams;
+}
