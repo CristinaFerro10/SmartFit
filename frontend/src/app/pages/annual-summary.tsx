@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Filter, X } from 'lucide-react';
 import { cardMonthlyCounters } from '../services/card-service';
+import { Loading } from '../components/ui/loading';
 import { MonthlyActivityCounters, MonthPlan } from '../lib/utils';
 
 type PlanType = 'firstPlanNew' | 'firstPlanRenewal' | 'planChanges' | 'individualTraining';
@@ -19,30 +20,29 @@ const PLAN_TYPE_LABELS: Record<PlanType, string> = {
   individualTraining: 'Allenamenti individuali (PT)'
 };
 
+const YEAR_OPTIONS = [new Date().getFullYear() - 2, new Date().getFullYear() - 1, new Date().getFullYear()];
+
 export function AnnualSummary() {
   const navigate = useNavigate();
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-
-  // Filters - Empty arrays mean "all" (default state)
-  const [selectedMonths, setSelectedMonths] = useState<number[] | null>(null); // Empty = all months
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]); // Empty = all months
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()); // Default to current year
-  const [selectedPlanTypes, setSelectedPlanTypes] = useState<PlanType[] | null>(null); // Empty = all types
+  const [selectedPlanTypes, setSelectedPlanTypes] = useState<PlanType[]>([]); // Empty = all types
   const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>('all');
-  const [monthlyCounters, setMonthlyCounters] = useState<MonthlyActivityCounters[] | undefined>(undefined);
   const [monthPlan, setMonthPlan] = useState<MonthPlan[] | undefined>(undefined);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const currentMonth = new Date().getMonth();
-
   // Helpers for "all" state
-  const isAllMonthsSelected = !selectedMonths || selectedMonths.length === 0;
-  const isAllPlanTypesSelected = !selectedPlanTypes || selectedPlanTypes.length === 0;
+  const isAllMonthsSelected = selectedMonths.length === 0;
+  const isAllPlanTypesSelected = selectedPlanTypes.length === 0;
 
   const getMonthPlan = (year: number = new Date().getFullYear(), monthlyCounters: MonthlyActivityCounters[] | undefined): MonthPlan[] => {
     const currentDateYear = new Date();
     const currentDateMonth = new Date();
     const monthToShow: MonthPlan[] = [];
     MONTH_NAMES.forEach((e, index) => {
-      if (!selectedMonths || selectedMonths.includes(index + 1)) {
+      if (selectedMonths.length === 0 || selectedMonths.includes(index + 1)) {
         monthToShow.push(
           { month: index + 1, name: e, isFuture: year > currentDateYear.getFullYear() || (year === currentDateYear.getFullYear() && index > currentDateMonth.getMonth()), counters: monthlyCounters?.find(counter => counter.Month === index + 1) }
         );
@@ -56,13 +56,23 @@ export function AnnualSummary() {
   }, [selectedMonths, clientTypeFilter, currentMonth, isAllMonthsSelected, selectedPlanTypes, isAllPlanTypesSelected, selectedYear]);
 
   const fetchMonthlyCounters = async () => {
+    setLoading(true);
     try {
-      // TODO cambiare con filtro impostato
-      const response = await cardMonthlyCounters(selectedMonths, selectedYear); // Pass current month and flag to get monthly counters
-      setMonthlyCounters(response);
+      const response = await cardMonthlyCounters({
+        months: selectedMonths,
+        year: selectedYear,
+        isMDSSubscription: clientTypeFilter ? clientTypeFilter === 'mds' : null,
+        includeNew: selectedPlanTypes ? selectedPlanTypes.includes('firstPlanNew') : null,
+        includeRenewed: selectedPlanTypes ? selectedPlanTypes.includes('firstPlanRenewal') : null,
+        includeUpdates: selectedPlanTypes ? selectedPlanTypes.includes('planChanges') : null,
+        includePT: selectedPlanTypes ? selectedPlanTypes.includes('individualTraining') : null,
+      });
       setMonthPlan(getMonthPlan(selectedYear, response as MonthlyActivityCounters[] | undefined));
+      // TODO: get totale
     } catch (error) {
       console.error('Error fetching monthly counters:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,6 +104,7 @@ export function AnnualSummary() {
   };
 
   const activeFiltersCount = [
+    selectedYear !== new Date().getFullYear() ? 1 : 0,
     !isAllMonthsSelected ? 1 : 0,
     !isAllPlanTypesSelected ? 1 : 0,
     clientTypeFilter !== 'all' ? 1 : 0,
@@ -105,7 +116,10 @@ export function AnnualSummary() {
     setClientTypeFilter('all');
   };
 
-  return (
+  // TODO: loading
+  return (loading ? (
+    <Loading message="Caricamento dati..." />
+  ) : (
     <div className="min-h-screen bg-gray-50 pb-8">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-6 mb-6">
@@ -298,7 +312,7 @@ export function AnnualSummary() {
                         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <div className="text-xs text-gray-600 mb-1">Allenamenti</div>
                           <div className="text-xs text-gray-500 mb-1.5">(PT)</div>
-                          <div className="text-2xl font-bold text-gray-800">{month.counters.IndividualTraining ?? 0}</div>
+                          <div className="text-2xl font-bold text-gray-800">{month.counters.TotalSession ?? 0}</div>
                         </div>
                       )}
 
@@ -355,6 +369,27 @@ export function AnnualSummary() {
 
             {/* Panel Content */}
             <div className="overflow-y-auto p-4 space-y-6">
+              {/* Year Filter */}
+              <div>
+                <h3 className="font-semibold mb-3">Anno di riferimento</h3>
+                <div className="space-y-2">
+                  {
+                    YEAR_OPTIONS.map(year => (
+                      <label className="flex items-center gap-3 cursor-pointer" key={year}>
+                        <input
+                          type="radio"
+                          name="year"
+                          checked={selectedYear === year}
+                          onChange={() => setSelectedYear(year)}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm">{year}</span>
+                      </label>
+                    ))
+                  }
+                </div>
+              </div>
+
               {/* Month Filter */}
               <div>
                 <h3 className="font-semibold mb-3">Periodo</h3>
@@ -365,9 +400,9 @@ export function AnnualSummary() {
                     <input
                       type="radio"
                       name="monthFilter"
-                      checked={!selectedMonths}
+                      checked={selectedMonths.length === 0}
                       onChange={() => {
-                        setSelectedMonths(null);
+                        setSelectedMonths([]);
                       }}
                       className="w-4 h-4 text-blue-600"
                     />
@@ -405,9 +440,9 @@ export function AnnualSummary() {
                     <input
                       type="radio"
                       name="planTypeFilter"
-                      checked={!selectedPlanTypes}
+                      checked={selectedPlanTypes.length === 0}
                       onChange={() => {
-                        setSelectedPlanTypes(null);
+                        setSelectedPlanTypes([]);
                       }}
                       className="w-4 h-4 text-blue-600"
                     />
@@ -526,5 +561,6 @@ export function AnnualSummary() {
       )
       }
     </div >
+  )
   );
 }

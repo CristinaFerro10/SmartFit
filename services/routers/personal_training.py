@@ -19,154 +19,168 @@ router = APIRouter(
 async def get_session_type(user: user_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
+    try:
+        response = supabase.table('SessionPTType')\
+            .select('*')\
+            .eq('Enabled', True)\
+            .order('SessionNumber',desc=False)\
+            .execute()
 
-    response = supabase.table('SessionPTType')\
-        .select('*')\
-        .eq('Enabled', True)\
-        .order('SessionNumber',desc=False)\
-        .execute()
-
-    return response.data
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/package/active/{customer_id}', status_code=status.HTTP_200_OK)
 async def get_active_package(user: user_dependency, customer_id: int):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
-
-    customerPTResponse = supabase.table('vw_ActiveCustomerPT')\
-        .select('*')\
-        .eq('CustomerId',customer_id)\
-        .execute()
-
-    if customerPTResponse.data and customerPTResponse.data[0]:
-        customerPT = CustomerPTModel(**customerPTResponse.data[0])
-
-        sessionHistory = supabase.table('vw_SessionPTHistory')\
+    try:
+        customerPTResponse = supabase.table('vw_ActiveCustomerPT')\
             .select('*')\
-            .eq('CustomerPTId',customerPT.Id)\
+            .eq('CustomerId',customer_id)\
             .execute()
 
-        integrationHistory = supabase.table('CustomerPTHistory')\
-            .select('SessionAdded, DateStart')\
-            .eq('CustomerPTId',customerPT.Id)\
-            .execute()
+        if customerPTResponse.data and customerPTResponse.data[0]:
+            customerPT = CustomerPTModel(**customerPTResponse.data[0])
 
-        return CustomerPTActiveModel(
-            DateStart=customerPT.DateStart,
-            SessionHistory=[] if sessionHistory.data is None else sessionHistory.data,
-            IntegrationHistory=[] if integrationHistory.data is None else integrationHistory.data,
-            Id=customerPT.Id,
-            SessionNumber=customerPT.SessionNumber,
-            TotalSession=customerPT.TotalSession,
-            RemainingSession=customerPT.SessionNumber-customerPT.TotalSession
-        )
-    else:
-        return None
+            sessionHistory = supabase.table('vw_SessionPTHistory')\
+                .select('*')\
+                .eq('CustomerPTId',customerPT.Id)\
+                .execute()
+
+            integrationHistory = supabase.table('CustomerPTHistory')\
+                .select('SessionAdded, DateStart')\
+                .eq('CustomerPTId',customerPT.Id)\
+                .execute()
+
+            return CustomerPTActiveModel(
+                DateStart=customerPT.DateStart,
+                SessionHistory=[] if sessionHistory.data is None else sessionHistory.data,
+                IntegrationHistory=[] if integrationHistory.data is None else integrationHistory.data,
+                Id=customerPT.Id,
+                SessionNumber=customerPT.SessionNumber,
+                TotalSession=customerPT.TotalSession,
+                RemainingSession=customerPT.SessionNumber-customerPT.TotalSession
+            )
+        else:
+            return None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/package/history/{customer_id}', status_code=status.HTTP_200_OK)
 async def get_history_packages(user: user_dependency, customer_id: int):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
+    try:
+        lastSessionResponse = supabase.table('vw_SessionPTHistory')\
+                .select('*')\
+                .eq('CustomerId', customer_id)\
+                .order('DateStart',desc=True)\
+                .limit(1)\
+                .execute()
 
-    lastSessionResponse = supabase.table('vw_SessionPTHistory')\
-            .select('*')\
-            .eq('CustomerId', customer_id)\
-            .order('DateStart',desc=True)\
-            .limit(1)\
-            .execute()
+        if lastSessionResponse.data and lastSessionResponse.data[0]:
+            lastSession = SessionPTHistoryModel(**lastSessionResponse.data[0])
+            customerPTResponse = supabase.table('vw_CompletedCustomerPT')\
+                .select('*')\
+                .eq('CustomerId', customer_id)\
+                .execute()
 
-    if lastSessionResponse.data and lastSessionResponse.data[0]:
-        lastSession = SessionPTHistoryModel(**lastSessionResponse.data[0])
-        customerPTResponse = supabase.table('vw_CompletedCustomerPT')\
-            .select('*')\
-            .eq('CustomerId', customer_id)\
-            .execute()
-
-        return PackageHistoryModel(
-            SessionId=lastSession.Id,
-            TrainingOperatorName=lastSession.TrainingOperatorName,
-            SessionNumber=lastSession.SessionNumber,
-            DateStart=lastSession.DateStart,
-            CanUndo=lastSession.CanUndo,
-            CustomerPTId=lastSession.CustomerPTId,
-            PackageHistory=[] if customerPTResponse.data is None else customerPTResponse.data
-        )
-    else:
-        return None
+            return PackageHistoryModel(
+                SessionId=lastSession.Id,
+                TrainingOperatorName=lastSession.TrainingOperatorName,
+                SessionNumber=lastSession.SessionNumber,
+                DateStart=lastSession.DateStart,
+                CanUndo=lastSession.CanUndo,
+                CustomerPTId=lastSession.CustomerPTId,
+                PackageHistory=[] if customerPTResponse.data is None else customerPTResponse.data
+            )
+        else:
+            return None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post('/package', status_code=status.HTTP_201_CREATED)
 async def create_package_pt(user: user_dependency, params: PTRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
-
-    supabase.table('CustomerPT')\
-    .insert([
-        params.model_dump()
-    ]) \
-    .execute()
+    try:
+        supabase.table('CustomerPT')\
+        .insert([
+            params.model_dump()
+        ]) \
+        .execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put('/package/upgrade', status_code=status.HTTP_201_CREATED)
 async def update_package_pt(user: user_dependency, params: PTUpgradeRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
+    try:
+        supabase.table('CustomerPTHistory')\
+        .insert([
+            PTUpgrade(
+                DateStart=params.DateStart,
+                TrainingOperatorId=user.get('id'),
+                CustomerPTId=params.CustomerPTId,
+                SessionAdded=params.SessionAdded
+            ).model_dump()
+        ]) \
+        .execute()
 
-    supabase.table('CustomerPTHistory')\
-    .insert([
-        PTUpgrade(
-            DateStart=params.DateStart,
-            TrainingOperatorId=user.get('id'),
-            CustomerPTId=params.CustomerPTId,
-            SessionAdded=params.SessionAdded
-        ).model_dump()
-    ]) \
-    .execute()
-
-    supabase.table('CustomerPT')\
-    .update(
-        {'SessionPTTypeId': params.SessionPTTypeId}
-    )\
-    .eq('Id', params.CustomerPTId)\
-    .execute()
+        supabase.table('CustomerPT')\
+        .update(
+            {'SessionPTTypeId': params.SessionPTTypeId}
+        )\
+        .eq('Id', params.CustomerPTId)\
+        .execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post('/session', status_code=status.HTTP_201_CREATED)
 async def create_session_pt(user: user_dependency, params: SessionPTRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
-
-    supabase.table('SessionPT')\
-    .insert([
-        SessionPT(
-            DateStart=params.DateStart,
-            TrainingOperatorId=user.get('id'),
-            CustomerPTId=params.CustomerPTId,
-        ).model_dump()
-    ]) \
-    .execute()
-
-    customerPTResponse = supabase.table('vw_ActiveCustomerPT')\
-        .select('TotalSession','SessionNumber','Id')\
-        .eq('Id',params.CustomerPTId)\
+    try:
+        supabase.table('SessionPT')\
+        .insert([
+            SessionPT(
+                DateStart=params.DateStart,
+                TrainingOperatorId=user.get('id'),
+                CustomerPTId=params.CustomerPTId,
+            ).model_dump()
+        ]) \
         .execute()
 
-    customerPT = CheckCustomerPTStatus(**customerPTResponse.data[0])
-
-    if customerPT.TotalSession == customerPT.SessionNumber:
-        supabase.table('CustomerPT')\
-            .update({'Completed': True})\
-            .eq('Id', customerPT.Id)\
+        customerPTResponse = supabase.table('vw_ActiveCustomerPT')\
+            .select('TotalSession','SessionNumber','Id')\
+            .eq('Id',params.CustomerPTId)\
             .execute()
+
+        customerPT = CheckCustomerPTStatus(**customerPTResponse.data[0])
+
+        if customerPT.TotalSession == customerPT.SessionNumber:
+            supabase.table('CustomerPT')\
+                .update({'Completed': True})\
+                .eq('Id', customerPT.Id)\
+                .execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete('/session', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_session_pt(user: user_dependency, params: DeleteSessionRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
+    try:
+        supabase.table('SessionPT')\
+            .delete()\
+            .eq('Id', params.SessionPTId)\
+            .execute()
 
-    supabase.table('SessionPT')\
-        .delete()\
-        .eq('Id', params.SessionPTId)\
-        .execute()
-
-    supabase.table('CustomerPT') \
-        .update({'Completed': False}) \
-        .eq('Id', params.CustomerPTId) \
-        .execute()
+        supabase.table('CustomerPT') \
+            .update({'Completed': False}) \
+            .eq('Id', params.CustomerPTId) \
+            .execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

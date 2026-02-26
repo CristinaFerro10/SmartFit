@@ -1,17 +1,33 @@
 import { CardRequest } from '../lib/set-types';
+import { CardMonthlyParams } from '../lib/types';
 import api from './api-service';
 
 const apiUrl = '/card';
 
-const cardMonthlyCounters = async (months: number[] | null, year: number) => {
+const cardMonthlyCounters = async (params: CardMonthlyParams) => {
     try {
-        const params = new URLSearchParams();
-        months?.forEach(month => params.append('months', month.toString()));
-        params.append('year', year.toString());
+        const queryParams = new URLSearchParams();
+        params.months?.forEach(month => queryParams.append('months', month.toString()));
+        queryParams.append('year', params.year.toString());
+        if (params.isMDSSubscription) {
+            queryParams.append('isMDSSubscription', params.isMDSSubscription.toString());
+        }
+        if (params.includeNew) {
+            queryParams.append('includeNew', params.includeNew.toString());
+        }
+        if (params.includeRenewed) {
+            queryParams.append('includeRenewed', params.includeRenewed.toString());
+        }
+        if (params.includeUpdates) {
+            queryParams.append('includeUpdates', params.includeUpdates.toString());
+        }
+        if (params.includePT) {
+            queryParams.append('includePT', params.includePT.toString());
+        }
 
         const response = await api.get(
             `${apiUrl}/summary`,
-            { params }
+            { params: queryParams }
         );
         return response.data;
     } catch (error) {

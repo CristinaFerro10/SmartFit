@@ -21,68 +21,75 @@ router = APIRouter(
 )
 
 @router.get("/dashboard", status_code=status.HTTP_200_OK, response_model=PaginatedResponse[dict])
-async def list_users(user: user_dependency,
-    filters: CustomerDashboardISTFilterPaginated = Query()
-):
-    query = get_dashboard_filtered(filters, user)
+async def list_users(user: user_dependency, filters: CustomerDashboardISTFilterPaginated = Query()):
+    try:
+        query = get_dashboard_filtered(filters, user)
 
-    if filters.WarningType is not None:
-        query.eq('Warning', filters.WarningType.value)
+        if filters.WarningType is not None:
+            query.eq('Warning', filters.WarningType.value)
 
-    if filters.OrderBy is None or filters.OrderBy == CustomerOrderBy.Default.value:
-        query.order('Warning', desc=True)
-    elif filters.OrderBy == CustomerOrderBy.NameAsc.value:
-        query.order('Name', desc=False, nullsfirst=False)
-    elif filters.OrderBy == CustomerOrderBy.NameDesc.value:
-        query.order('Name', desc=True, nullsfirst=False)
-    elif filters.OrderBy == CustomerOrderBy.LastAccessDate.value:
-        query.order('LastAccessDate', desc=True, nullsfirst=False)
-    elif filters.OrderBy == CustomerOrderBy.LastCard.value:
-        query.order('StartDate', desc=True, nullsfirst=False)
+        if filters.OrderBy is None or filters.OrderBy == CustomerOrderBy.Default.value:
+            query.order('Warning', desc=True)
+        elif filters.OrderBy == CustomerOrderBy.NameAsc.value:
+            query.order('Name', desc=False, nullsfirst=False)
+        elif filters.OrderBy == CustomerOrderBy.NameDesc.value:
+            query.order('Name', desc=True, nullsfirst=False)
+        elif filters.OrderBy == CustomerOrderBy.LastAccessDate.value:
+            query.order('LastAccessDate', desc=True, nullsfirst=False)
+        elif filters.OrderBy == CustomerOrderBy.LastCard.value:
+            query.order('StartDate', desc=True, nullsfirst=False)
 
-    result = query\
-        .offset(filters.get_offset())\
-        .limit(filters.page_size)\
-        .execute()
+        result = query\
+            .offset(filters.get_offset())\
+            .limit(filters.page_size)\
+            .execute()
 
-    return PaginatedResponse[dict](
-        items=result.data,
-        total=result.count
-    )
+        return PaginatedResponse[dict](
+            items=result.data,
+            total=result.count
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/dashboard/count", status_code=status.HTTP_200_OK)
-async def list_users(user: user_dependency,
-    filters: CustomerDashboardISTFilter = Query()
-):
-    query = get_dashboard_filtered(filters, user)
+async def list_users(user: user_dependency, filters: CustomerDashboardISTFilter = Query()):
+    try:
+        query = get_dashboard_filtered(filters, user)
 
-    response = query.execute()
-    warning_counts = Counter(item['Warning'] for item in response.data)
+        response = query.execute()
+        warning_counts = Counter(item['Warning'] for item in response.data)
 
-    return warning_counts
+        return warning_counts
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/detail", status_code=status.HTTP_200_OK)
 async def detail_user(user: user_dependency, customer: int = Query(gt=1)):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
-    view: str = "vw_DetailCustomer_Secretary" if Role.Secretary.value in user.get('role') else "vw_DetailCustomer_Consultant"
+    try:
+        view: str = "vw_DetailCustomer_Secretary" if Role.Secretary.value in user.get('role') else "vw_DetailCustomer_Consultant"
 
-    result = supabase.table(view)\
-        .select('*')\
-        .eq('IdWinC', customer)\
-        .execute()
+        result = supabase.table(view)\
+            .select('*')\
+            .eq('IdWinC', customer)\
+            .execute()
 
-    return result.data
+        return result.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/description", status_code=status.HTTP_204_NO_CONTENT)
 async def description_user(user: user_dependency, params: CustomerDescriptionRequest):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
-
-    supabase.table('Customer')\
-        .update({ 'DescriptionSGR' if Role.Secretary.value in user.get('role') else 'DescriptionIST': params.Description })\
-        .eq('IdWinC', params.CustomerId)\
-        .execute()
+    try:
+        supabase.table('Customer')\
+            .update({ 'DescriptionSGR' if Role.Secretary.value in user.get('role') else 'DescriptionIST': params.Description })\
+            .eq('IdWinC', params.CustomerId)\
+            .execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 def get_dashboard_filtered(filters, user):
     if user is None:

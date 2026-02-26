@@ -61,7 +61,7 @@ export function Dashboard() {
 
   const fetchMonthlyCounters = async () => {
     try {
-      const response = await cardMonthlyCounters([new Date().getMonth() + 1], new Date().getFullYear()); // Pass current month and flag to get monthly counters
+      const response = await cardMonthlyCounters({ months: [new Date().getMonth() + 1], year: new Date().getFullYear() });
       setMonthlyCounters(response ? response[0] : undefined);
     } catch (error) {
       console.error('Error fetching monthly counters:', error);
@@ -216,7 +216,7 @@ export function Dashboard() {
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <div className="text-xs text-gray-600 mb-1">Allenamenti</div>
                     <div className="text-xs text-gray-500 mb-2">(individuali PT)</div>
-                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters?.IndividualTraining}</div>
+                    <div className="text-2xl font-bold text-purple-600">{monthlyCounters?.TotalSession}</div>
                   </div>
 
                   {/* Total - Uniform styling with other counters */}

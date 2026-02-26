@@ -18,3 +18,8 @@ class CustomerDashboardISTFilterPaginated(PaginationParams, CustomerDashboardIST
 class MonthCounterFilter(BaseModel):
     months: Optional[list[int]] = None
     year: int
+    isMDSSubscription: Optional[bool] = None
+    includeNew: Optional[bool] = None
+    includeUpdates: Optional[bool] = None
+    includeRenewed: Optional[bool] = None
+    includePT: Optional[bool] = None

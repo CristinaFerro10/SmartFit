@@ -424,7 +424,7 @@ export function ClientDetail() {
             </div>
 
             <div></div>
-            {/* Individual Training TODO*/}
+            {/* Individual Training */}
             <IndividualTraining
               client={client}
             />
