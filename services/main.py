@@ -1,13 +1,18 @@
 from fastapi import FastAPI
 from routers import auth, jobhelper, customer, card, personal_training
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+ORIGIN = os.getenv("ALLOW_ORIGIN")
 
 #UVI per dipendenze al posto di PIP
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
+        ORIGIN,
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
