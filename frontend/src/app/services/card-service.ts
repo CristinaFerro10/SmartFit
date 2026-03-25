@@ -1,5 +1,5 @@
-import { CardRequest } from '../lib/set-types';
-import { CardMonthlyParams } from '../lib/types';
+import { CardRequest } from '../models/set-types';
+import { CardMonthlyParams } from '../models/types';
 import api from './api-service';
 
 const apiUrl = '/card';

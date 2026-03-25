@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, CheckCircle, Undo, ChevronDown, ChevronUp, Package, X } from 'lucide-react';
-import { Customer, IndividualTrainingActive, IndividualTrainingHistory, SessionPackageType } from '../lib/types';
-import { formatDate } from '../lib/utils';
+import { Customer, IndividualTrainingActive, IndividualTrainingHistory, SessionPackageType } from '../models/types';
+import { formatDate } from '../models/utils';
 import { DateSelector } from './date-selector';
 import { activePackageGet, completeSession, deleteLastSession, historyPackage, newPackage, sessionPackageTypeGet, upgradePackage } from '../services/pt-service';
 import { LoadingContent } from './ui/loading';

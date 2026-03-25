@@ -1,4 +1,4 @@
-import { CustomerDashboardFilter } from '../lib/filtermodel';
+import { CustomerDashboardFilter } from '../models/filtermodel';
 import api from './api-service';
 
 const apiUrl = '/customer';

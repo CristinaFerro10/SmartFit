@@ -2,8 +2,6 @@ from collections import Counter
 from typing import Annotated
 from fastapi import HTTPException, status, Depends, APIRouter, Query
 from postgrest import CountMethod
-from pydantic import Field
-
 from models.enumtype import Role, CustomerOrderBy
 from models.filter import CustomerDashboardISTFilter, CustomerDashboardISTFilterPaginated
 from models.pagination import PaginatedResponse

@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, SlidersHorizontal, X, ClipboardList } from 'lucide-react';
-import { CountCustomer, Customer } from '../lib/types';
-import { getFilterLabel, MonthlyActivityCounters } from '../lib/utils';
+import { CountCustomer, Customer } from '../models/types';
+import { getFilterLabel, MonthlyActivityCounters } from '../models/utils';
 import { ClientCard } from '../components/client-card';
 import { getCountCustomersIST, getCustomersIST } from '../services/customer-service';
-import { CustomerOrderBy, CustomerWarning } from '../lib/filtermodel';
+import { CustomerOrderBy, CustomerWarning } from '../models/filtermodel';
 import { Loading } from '../components/ui/loading';
 import { useAuthStore } from '../stores/authStore';
 import { cardMonthlyCounters } from '../services/card-service';

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Filter, X } from 'lucide-react';
 import { cardMonthlyCounters, totalCardMonthlyCounters } from '../services/card-service';
 import { Loading } from '../components/ui/loading';
-import { MonthlyActivityCounters, MonthPlan } from '../lib/utils';
+import { MonthlyActivityCounters, MonthPlan } from '../models/utils';
 
 type PlanType = 'firstPlanNew' | 'firstPlanRenewal' | 'planChanges' | 'individualTraining';
 type ClientTypeFilter = 'all' | 'standard' | 'mds';
@@ -125,13 +125,6 @@ export function AnnualSummary() {
     <div className="min-h-screen bg-gray-50 pb-8">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-6 mb-6">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Torna alla dashboard</span>
-        </button>
 
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">

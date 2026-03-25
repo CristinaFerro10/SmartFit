@@ -1,4 +1,4 @@
-import { CompleteSessionPackage, DeleteLastSessionPackage, NewPackageRequest, UpgradePackageRequest } from '../lib/set-types';
+import { CompleteSessionPackage, DeleteLastSessionPackage, NewPackageRequest, UpgradePackageRequest } from '../models/set-types';
 import api from './api-service';
 
 const apiUrl = '/pt';

@@ -1,9 +1,9 @@
-import { Customer } from '../lib/types';
-import { getExpirationText, formatDate } from '../lib/utils';
+import { Customer } from '../models/types';
+import { getExpirationText, formatDate } from '../models/utils';
 import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useClientStore } from '../stores/useClientStore';
-import { CustomerWarning } from '../lib/filtermodel';
+import { CustomerWarning } from '../models/filtermodel';
 
 interface ClientCardProps {
   client: Customer;

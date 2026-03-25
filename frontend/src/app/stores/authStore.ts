@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { jwtDecode } from 'jwt-decode';
-import { UserTokenPayload } from '../lib/types';
+import { UserTokenPayload } from '../models/types';
 
 
 interface AuthStore {

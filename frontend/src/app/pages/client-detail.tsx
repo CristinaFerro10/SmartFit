@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, Calendar, CreditCard, Undo, FileText, ClipboardList } from 'lucide-react';
-import { Customer } from '../lib/types';
+import { Customer } from '../models/types';
 import {
   formatDate,
   getExpirationText,
   getStatusChipColors,
   getStatusChipLabel
-} from '../lib/utils';
+} from '../models/utils';
 import { IndividualTraining } from '../components/individual-training';
 import { DateSelector } from '../components/date-selector';
 import { useClientStore } from '../stores/useClientStore';
 import { getCustomersDetailIST, updateDescription } from '../services/customer-service';
 import { Loading } from '../components/ui/loading';
 import { newCard, rescheduleCard, undoCard } from '../services/card-service';
-import { CustomerWarning } from '../lib/filtermodel';
+import { CustomerWarning } from '../models/filtermodel';
 
 const DURATION_OPTIONS = [
   { label: '2', weeks: 2, days: 14 },

@@ -1,7 +1,5 @@
 from typing import Optional
-
 from pydantic import BaseModel
-
 from models.enumtype import CustomerWarning, CustomerOrderBy
 from models.pagination import PaginationParams
 
