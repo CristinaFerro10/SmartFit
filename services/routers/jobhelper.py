@@ -143,7 +143,7 @@ async def save_customer(response, user: IdModel):
         )
 
 # TODO: da decidere ogni quanto devono aggiornarsi, ogni MESE?
-@router.post('/subscription', status_code=status.HTTP_204_NO_CONTENT)
+@router.post('/subscription', status_code=status.HTTP_201_CREATED)
 async def create_subscriptions():
     token = await auth_manager.get_token(usr, psw)
     api_url = f"{curling}{company}/Analysis/packages"
@@ -175,6 +175,7 @@ async def create_subscriptions():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail='Could not validate credentials'
             )
+    return {"status": "ok"}
 
 # TODO: da decidere ogni quanto devono aggiornarsi, ogni GIORNO?
 ''' analysis_sales
